@@ -37,7 +37,7 @@ export default function SkillList({ skills, selectedSkillId }) {
       <div className="flex items-center gap-2">
         <div className="w-px h-4 bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.8)]" />
         <h2 className="panel-label">Skill Set</h2>
-        <span className="ml-auto text-[10px] text-cyan-500/30 tracking-widest">
+        <span className="ml-auto text-[10px] text-cyan-400/50 tracking-widest">
           {skills.filter(s => s).length} LOADED
         </span>
       </div>
@@ -75,11 +75,11 @@ export default function SkillList({ skills, selectedSkillId }) {
 
               <div className="flex-1 min-w-0">
                 <p className={`text-base font-semibold truncate tracking-wide ${
-                  isSelected ? 'text-cyan-200' : isPlanned ? 'text-white/40' : 'text-white/70'
+                  isSelected ? 'text-cyan-100' : isPlanned ? 'text-white/40' : 'text-white/85'
                 }`}>
                   {skill.name}
                 </p>
-                <p className="text-xs text-cyan-500/30 truncate mt-0.5">{skill.description}</p>
+                <p className="text-xs text-cyan-400/50 truncate mt-0.5">{skill.description}</p>
               </div>
 
               {/* バッジ */}

@@ -152,7 +152,7 @@ export default function App() {
                     v1.0
                   </span>
                 </div>
-                <p className="text-[10px] text-cyan-500/40 tracking-[0.15em] uppercase mt-0.5">
+                <p className="text-[10px] text-cyan-400/60 tracking-[0.15em] uppercase mt-0.5">
                   LLM-Powered ACT Skill Executor
                 </p>
               </div>
@@ -166,7 +166,7 @@ export default function App() {
                     ? 'bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.9)] animate-pulse'
                     : 'bg-red-500'
                 }`} />
-                <span className={isConnected ? 'text-cyan-400/80' : 'text-red-400/80'}>
+                <span className={isConnected ? 'text-cyan-300' : 'text-red-300'}>
                   {isConnected ? 'System Online' : 'Reconnecting'}
                 </span>
               </div>

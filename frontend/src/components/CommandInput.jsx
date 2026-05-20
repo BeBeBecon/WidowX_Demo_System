@@ -40,12 +40,11 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSubmit(e) }}
             placeholder="ロボットへの命令を入力（例: キューブを掴んで）"
             rows={5}
             disabled={disabled}
             className="w-full bg-black/40 border border-cyan-500/15 rounded-none pl-4 pr-4 py-3
-                       text-base text-cyan-100/80 placeholder-cyan-500/20
+                       text-base text-cyan-100 placeholder-cyan-400/30
                        focus:outline-none focus:border-cyan-400/50
                        focus:shadow-[0_0_15px_rgba(0,229,255,0.08)]
                        transition-all duration-200 disabled:opacity-30
@@ -94,7 +93,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
 
       {/* サンプルコマンド */}
       <div className="space-y-2">
-        <p className="text-[10px] text-cyan-500/30 tracking-widest uppercase">Quick Commands</p>
+        <p className="text-[10px] text-cyan-400/50 tracking-widest uppercase">Quick Commands</p>
         <div className="flex flex-wrap gap-2">
           {SAMPLES.map(s => (
             <button

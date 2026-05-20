@@ -8,18 +8,20 @@ import { useEffect, useRef } from 'react'
 // ログ行の種別に応じて色を変える
 const lineColor = (line) => {
   if (line.startsWith('[ERROR]'))    return 'text-red-400'
-  if (line.startsWith('[DRY RUN]'))  return 'text-amber-400/80'
-  if (line.startsWith('[LLM]'))      return 'text-cyan-400'
-  if (line.startsWith('[INFO]'))     return 'text-emerald-400'
-  return 'text-emerald-500/60'
+  if (line.startsWith('[DRY RUN]'))  return 'text-amber-300'
+  if (line.startsWith('[LLM]'))      return 'text-cyan-300'
+  if (line.startsWith('[INFO]'))     return 'text-emerald-300'
+  return 'text-emerald-400/80'
 }
 
 export default function LogPanel({ logs }) {
-  const bottomRef = useRef(null)
+  const containerRef = useRef(null)
 
-  // 新しいログが来たら末尾にスクロール
+  // 新しいログが来たらコンテナ内を末尾スクロール（ページ全体は動かさない）
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
+    }
   }, [logs])
 
   return (
@@ -38,10 +40,11 @@ export default function LogPanel({ logs }) {
       </div>
 
       {/* ターミナル本体 */}
-      <div className="h-64 overflow-y-auto bg-black/70 border border-cyan-500/10 p-4 space-y-1
+      <div ref={containerRef}
+           className="h-80 overflow-y-auto bg-black/70 border border-cyan-500/10 p-4 space-y-1
                       shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
         {logs.length === 0 ? (
-          <p className="text-xs text-emerald-500/20 select-none font-mono">
+          <p className="text-sm text-emerald-400/40 select-none font-mono">
             {'>'} Awaiting command...
             <span className="cursor-blink">_</span>
           </p>
@@ -49,16 +52,15 @@ export default function LogPanel({ logs }) {
           <>
             {logs.map((line, i) => (
               <p key={i} className={`text-sm leading-relaxed break-all font-mono ${lineColor(line)}`}>
-                <span className="text-cyan-500/30 select-none mr-1">{'>'}</span>
+                <span className="text-cyan-400/40 select-none mr-1">{'>'}</span>
                 {line}
               </p>
             ))}
-            <p className="text-xs text-emerald-500/30 font-mono">
+            <p className="text-sm text-emerald-400/40 font-mono">
               <span className="cursor-blink">_</span>
             </p>
           </>
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   )

@@ -6,12 +6,12 @@
 
 // ステータスごとの表示設定
 const STATUS_CONFIG = {
-  idle:       { label: 'Standby',    sub: '待機中',    color: 'text-cyan-500/50',  dot: 'bg-cyan-500/40',   glow: '',                                          ring: false },
-  connecting: { label: 'Connecting', sub: '接続中',    color: 'text-yellow-400',   dot: 'bg-yellow-400',    glow: 'shadow-[0_0_8px_rgba(250,204,21,0.8)]',     ring: true  },
-  thinking:   { label: 'Inference',  sub: 'LLM推論中', color: 'text-amber-300',    dot: 'bg-amber-400',     glow: 'shadow-[0_0_8px_rgba(251,191,36,0.8)]',     ring: true  },
-  executing:  { label: 'Executing',  sub: '実行中',    color: 'text-cyan-300 neon-text', dot: 'bg-cyan-400', glow: 'shadow-[0_0_10px_rgba(0,229,255,0.9)]',    ring: true  },
-  done:       { label: 'Complete',   sub: '完了',      color: 'text-emerald-400',  dot: 'bg-emerald-400',   glow: 'shadow-[0_0_8px_rgba(52,211,153,0.8)]',     ring: false },
-  error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-400',      dot: 'bg-red-500',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.8)]',      ring: false },
+  idle:       { label: 'Standby',    sub: '待機中',    color: 'text-cyan-400/70',  dot: 'bg-cyan-400/60',   glow: '',                                          ring: false },
+  connecting: { label: 'Connecting', sub: '接続中',    color: 'text-yellow-300',   dot: 'bg-yellow-300',    glow: 'shadow-[0_0_8px_rgba(250,204,21,0.8)]',     ring: true  },
+  thinking:   { label: 'Inference',  sub: 'LLM推論中', color: 'text-amber-200',    dot: 'bg-amber-300',     glow: 'shadow-[0_0_8px_rgba(251,191,36,0.8)]',     ring: true  },
+  executing:  { label: 'Executing',  sub: '実行中',    color: 'text-cyan-200 neon-text', dot: 'bg-cyan-300', glow: 'shadow-[0_0_10px_rgba(0,229,255,0.9)]',    ring: true  },
+  done:       { label: 'Complete',   sub: '完了',      color: 'text-emerald-300',  dot: 'bg-emerald-300',   glow: 'shadow-[0_0_8px_rgba(52,211,153,0.8)]',     ring: false },
+  error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-300',      dot: 'bg-red-400',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.8)]',      ring: false },
 }
 
 export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) {
@@ -58,7 +58,7 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
           <div className={`text-2xl font-black tracking-[0.15em] uppercase ${cfg.color}`}>
             {cfg.label}
           </div>
-          <div className="text-sm text-white/25 tracking-widest mt-0.5">{cfg.sub}</div>
+          <div className="text-sm text-white/50 tracking-widest mt-0.5">{cfg.sub}</div>
         </div>
       </div>
 
@@ -78,7 +78,7 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
             <span className="text-2xl">{selectedSkill.icon ?? '🤖'}</span>
             <div>
               <p className="font-bold text-cyan-200 tracking-wide text-base">{selectedSkill.name}</p>
-              <p className="text-sm text-cyan-500/50 mt-0.5">{selectedSkill.description}</p>
+              <p className="text-sm text-cyan-400/70 mt-0.5">{selectedSkill.description}</p>
             </div>
           </div>
         </div>

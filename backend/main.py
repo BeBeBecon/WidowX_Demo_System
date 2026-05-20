@@ -76,15 +76,46 @@ async def websocket_endpoint(ws: WebSocket):
                 continue
 
             # ----------------
-            # Phase 1: LLM推論
+            # Phase 1: LLM推論（緊急停止も並行監視）
             # ----------------
             await send({"type": "status", "status": "thinking"})
             await send({"type": "log", "line": f"[LLM] 推論開始: '{command}'"})
 
+            async def llm_infer():
+                return await select_skill(command)
+
+            async def watch_stop_p1():
+                """LLM推論中の緊急停止を待機する"""
+                while True:
+                    raw2 = await ws.receive_text()
+                    msg2 = json.loads(raw2)
+                    if msg2.get("action") == "stop":
+                        return
+
+            llm_task  = asyncio.create_task(llm_infer())
+            stop_task1 = asyncio.create_task(watch_stop_p1())
+
+            done1, pending1 = await asyncio.wait(
+                [llm_task, stop_task1],
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+            for t in pending1:
+                t.cancel()
+                try:
+                    await t
+                except (asyncio.CancelledError, Exception):
+                    pass
+
+            if stop_task1 in done1:
+                await send({"type": "log", "line": "[INFO] 緊急停止が実行されました（推論中）"})
+                await send({"type": "status", "status": "idle"})
+                continue
+
             try:
-                skill_id = await select_skill(command)
+                skill_id = llm_task.result()
             except Exception as e:
-                await send({"type": "error", "message": f"LLM推論エラー: {e}"})
+                err_detail = f"{type(e).__name__}: {e}" if str(e) else type(e).__name__
+                await send({"type": "error", "message": f"LLM推論エラー: {err_detail}"})
                 await send({"type": "status", "status": "error"})
                 continue
 
@@ -138,7 +169,8 @@ async def websocket_endpoint(ws: WebSocket):
                 # 通常完了またはエラー
                 exc = exec_task.exception() if not exec_task.cancelled() else None
                 if exc:
-                    await send({"type": "error", "message": f"実行エラー: {exc}"})
+                    err_detail = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+                    await send({"type": "error", "message": f"実行エラー: {err_detail}"})
                     await send({"type": "status", "status": "error"})
                 else:
                     await send({"type": "status", "status": "done"})

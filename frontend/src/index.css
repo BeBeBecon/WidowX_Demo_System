@@ -75,7 +75,7 @@ body {
 
   /* セクションヘッダーラベル */
   .panel-label {
-    @apply text-sm font-bold uppercase tracking-[0.2em] text-cyan-500/70;
+    @apply text-sm font-bold uppercase tracking-[0.2em] text-cyan-400/90;
     letter-spacing: 0.2em;
   }
 }
