@@ -1,0 +1,41 @@
+{
+  "_comment": "公開設定ファイル。秘匿情報は .env に記載すること",
+  "ollama": {
+    "model": "qwen2.5:3b",
+    "timeout": 30
+  },
+  "act": {
+    "robot_type": "widowx",
+    "command_template": "python3 {lerobot_path}/lerobot/scripts/control_robot.py act --robot.type={robot_type} --policy.path={policy_path} --robot.cameras='{{}}'"
+  },
+  "skills": [
+    {
+      "id": "grab_cube",
+      "name": "Grab the cube",
+      "description": "テーブル上の赤いキューブを掴む",
+      "policy_path": "/data/act_policies/grab_cube",
+      "icon": "🟥"
+    },
+    {
+      "id": "place_cube",
+      "name": "Place the cube",
+      "description": "掴んだキューブを指定位置に置く",
+      "policy_path": "/data/act_policies/place_cube",
+      "icon": "📦"
+    },
+    {
+      "id": "stack_cubes",
+      "name": "Stack the cubes",
+      "description": "キューブを別のキューブの上に積み上げる",
+      "policy_path": "/data/act_policies/stack_cubes",
+      "icon": "🗼"
+    },
+    {
+      "id": "home_position",
+      "name": "Go to home position",
+      "description": "ロボットアームをホームポジションに戻す",
+      "policy_path": "/data/act_policies/home_position",
+      "icon": "🏠"
+    }
+  ]
+}

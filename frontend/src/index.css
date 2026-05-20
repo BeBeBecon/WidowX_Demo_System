@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ----------------
+   グローバルスタイル
+   Glassmorphism用ユーティリティとスクロールバーカスタマイズ
+   ---------------- */
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+  }
+}
+
+/* スクロールバーを細くダークに */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 2px; }
+
+/* テキストエリアのリサイズ禁止 */
+textarea { resize: none; }
