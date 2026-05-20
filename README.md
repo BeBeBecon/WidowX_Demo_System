@@ -56,7 +56,6 @@ cd widowx_system
 
 # .env.example をコピーして編集
 cp .env.example .env
-vi .env
 ```
 
 ### 1. 初回インストール
@@ -67,15 +66,10 @@ bash setup.sh
 
 ### 2. 環境変数の設定
 
-```bash
-vi .env
-```
-
-```
 OLLAMA_HOST=http://<LinuxのIP>:11434   # OllamaサーバーのURL
 LEROBOT_PATH=/home/ubuntu/lerobot      # LeRobotのインストールパス
 DRY_RUN=false                          # Mac開発時は true に設定
-```
+　※アームを直接動かさないなら「true」
 
 ### 3. スキルの定義
 

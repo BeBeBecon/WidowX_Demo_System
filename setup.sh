@@ -35,6 +35,16 @@ deactivate
 echo "[Backend] インストール完了"
 
 # ----------------
+# Node.js / npm がなければ自動インストール（Linux向け）
+# ----------------
+if ! command -v npm &>/dev/null; then
+  echo "[Frontend] npm が見つかりません。Node.js をインストールします..."
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  echo "[Frontend] Node.js インストール完了: $(node -v)"
+fi
+
+# ----------------
 # フロントエンド: npm install
 # ----------------
 echo ""
