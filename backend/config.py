@@ -20,10 +20,15 @@ def load_config() -> dict:
     with open(config_path, encoding="utf-8") as f:
         cfg = json.load(f)
 
-    # .env の値を注入
-    cfg["ollama"]["host"] = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    cfg["act"]["lerobot_path"] = os.getenv("LEROBOT_PATH", "/home/ubuntu/lerobot")
-    cfg["dry_run"] = os.getenv("DRY_RUN", "false").lower() == "true"
+    # ----------------
+    # .env の値を注入（秘匿・環境固有の設定）
+    # ----------------
+    cfg["ollama"]["host"]          = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+    cfg["robot"]["ip_address"]     = os.getenv("ROBOT_IP",    "192.168.1.4")
+    cfg["lerobot_path"]            = os.getenv("LEROBOT_PATH", "/home/ubuntu/lerobot_trossen")
+    cfg["uv_path"]                 = os.getenv("UV_PATH",      "uv")
+    cfg["hf_user"]                 = os.getenv("HF_USER",      "")
+    cfg["dry_run"]                 = os.getenv("DRY_RUN",      "false").lower() == "true"
 
     return cfg
 

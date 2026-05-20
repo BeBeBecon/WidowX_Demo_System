@@ -1,40 +1,79 @@
 {
-  "_comment": "公開設定ファイル。秘匿情報は .env に記載すること",
+  "_comment": "公開設定ファイル。秘匿情報（IP・ユーザー名等）は .env に記載すること",
+
   "ollama": {
     "model": "qwen2.5:3b",
     "timeout": 30
   },
-  "act": {
-    "robot_type": "widowx",
-    "command_template": "python3 {lerobot_path}/lerobot/scripts/control_robot.py act --robot.type={robot_type} --policy.path={policy_path} --robot.cameras='{{}}'"
+
+  "robot": {
+    "_comment": "ロボット本体の設定。ip_address は .env の ROBOT_IP で上書き",
+    "type": "widowxai_follower_robot",
+    "id": "follower",
+    "max_relative_target": 0.1,
+    "min_time_to_move_multiplier": 6.0,
+    "cameras": {
+      "cam_high": {
+        "type": "intelrealsense",
+        "serial_number_or_name": "335122270822",
+        "width": 640, "height": 480, "fps": 30, "warmup_s": 10
+      },
+      "cam_wrist": {
+        "type": "intelrealsense",
+        "serial_number_or_name": "409122272829",
+        "width": 640, "height": 480, "fps": 30, "warmup_s": 10
+      }
+    }
   },
+
+  "record": {
+    "_comment": "lerobot-record コマンドの共通オプション",
+    "display_data": false,
+    "push_to_hub": false,
+    "num_episodes": 3,
+    "episode_time_s": 20,
+    "reset_time_s": 5
+  },
+
+  "policy": {
+    "device": "cuda"
+  },
+
   "skills": [
     {
       "id": "grab_cube",
       "name": "Grab the cube",
       "description": "テーブル上の赤いキューブを掴む",
-      "policy_path": "/data/act_policies/grab_cube",
+      "task_name": "Grab the cube",
+      "policy_path": "outputs/train/grab_cube_act/checkpoints/last/pretrained_model",
+      "eval_repo_suffix": "eval_grab_cube_test",
       "icon": "🟥"
     },
     {
       "id": "place_cube",
       "name": "Place the cube",
       "description": "掴んだキューブを指定位置に置く",
-      "policy_path": "/data/act_policies/place_cube",
+      "task_name": "Place the cube",
+      "policy_path": "outputs/train/place_cube_act/checkpoints/last/pretrained_model",
+      "eval_repo_suffix": "eval_place_cube_test",
       "icon": "📦"
     },
     {
       "id": "stack_cubes",
       "name": "Stack the cubes",
       "description": "キューブを別のキューブの上に積み上げる",
-      "policy_path": "/data/act_policies/stack_cubes",
+      "task_name": "Stack the cubes",
+      "policy_path": "outputs/train/stack_cubes_act/checkpoints/last/pretrained_model",
+      "eval_repo_suffix": "eval_stack_cubes_test",
       "icon": "🗼"
     },
     {
       "id": "home_position",
       "name": "Go to home position",
       "description": "ロボットアームをホームポジションに戻す",
-      "policy_path": "/data/act_policies/home_position",
+      "task_name": "Go to home position",
+      "policy_path": "outputs/train/home_position_act/checkpoints/last/pretrained_model",
+      "eval_repo_suffix": "eval_home_position_test",
       "icon": "🏠"
     }
   ]

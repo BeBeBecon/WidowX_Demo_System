@@ -15,7 +15,7 @@ FastAPI バックエンド
     │
     ├──▶ Ollama (LLM) ──▶ スキル選択
     │
-    └──▶ subprocess ──▶ LeRobot ACT 実行
+    └──▶ subprocess ──▶ uv run lerobot-record（LeRobot ACT 実行）
 ```
 
 ---
@@ -37,7 +37,7 @@ sudo systemctl disable ollama
 # 手動で起動
 sudo systemctl start ollama
 
-# モデル一覧確認
+# モデル一覧確認（qwen2.5:3b が表示されればOK）
 ollama list
 ```
 
@@ -66,24 +66,44 @@ bash setup.sh
 
 ### 2. 環境変数の設定
 
-OLLAMA_HOST=http://<LinuxのIP>:11434   # OllamaサーバーのURL
-LEROBOT_PATH=/home/ubuntu/lerobot      # LeRobotのインストールパス
-DRY_RUN=false                          # Mac開発時は true に設定
-　※アームを直接動かさないなら「true」
+`.env` を編集して以下を設定する。
+
+```
+OLLAMA_HOST=http://localhost:11434               # Ollama サーバーの URL
+LEROBOT_PATH=/home/<username>/lerobot_trossen    # LeRobot のインストールパス
+ROBOT_IP=192.168.1.x                            # ロボットアームの IP アドレス
+HF_USER=your_hf_username                        # Hugging Face ユーザー名
+UV_PATH=/home/<username>/.local/bin/uv          # uv のフルパス（which uv で確認）
+DRY_RUN=false                                   # アームを動かさない場合は true
+```
+
+> `UV_PATH` は `which uv` で確認する。
 
 ### 3. スキルの定義
 
-`config.json` の `skills` 配列を編集してスキルを追加・変更する。
+新しいACTモデルを学習したら `config.json` の該当スキルを更新する。
 
 ```json
 {
-  "id": "grab_cube",           // 一意のID（英数字とアンダースコア）
-  "name": "Grab the cube",     // 表示名
-  "description": "説明文",
-  "policy_path": "/path/to/policy",  // ACTポリシーのパス
-  "icon": "🟥"                 // UI表示用絵文字
+  "id": "grab_cube",
+  "name": "Grab the cube",
+  "description": "テーブル上の赤いキューブを掴む",
+  "task_name": "Grab the cube",
+  "policy_path": "/home/katsube/lerobot_trossen/outputs/train/grab_cube_act_XXXX/checkpoints/last/pretrained_model",
+  "eval_repo_suffix": "eval_grab_cube_test_run01",
+  "icon": "🟥"
 }
 ```
+
+| フィールド | 説明 |
+|-----------|------|
+| `task_name` | `--dataset.single_task` に渡す文字列（**学習時のタスク名と完全一致**させること） |
+| `policy_path` | 学習済みモデルのチェックポイントへの絶対パス |
+| `eval_repo_suffix` | HFキャッシュ削除・eval保存先のsuffix。実行ごとにユニークな名前にすることを推奨（例: `eval_grab_cube_run02`） |
+
+**実行フロー（本番）:**
+1. `~/.cache/huggingface/lerobot/{HF_USER}/{eval_repo_suffix}` を削除（file exists 回避）
+2. `uv run --no-sync lerobot-record ...` を実行
 
 ---
 
@@ -108,13 +128,13 @@ bash start_frontend.sh
 ## 使い方
 
 1. 左カラムの入力欄に命令を入力（日本語・英語どちらでも可）
-2. **▶ 実行** ボタンを押す（またはEnterキー）
+2. **▶ Execute** ボタンを押す
 3. 右カラムにLLMのスキル選択結果と実行ログがリアルタイム表示される
+4. 実行中に **⏹ E-Stop** を押すとアームを即時停止できる
 
 ### サンプル命令
 
 - `キューブを掴んでください`
-- `Pick up the red cube`
 - `ホームポジションに戻って`
 - `Stack the cubes on top of each other`
 
@@ -124,7 +144,7 @@ bash start_frontend.sh
 
 ```
 widowx_system/
-├── config.json          # スキル定義・モデル設定（公開）
+├── config.json          # スキル定義・ロボット設定（公開）
 ├── .env                 # 環境固有の秘匿設定（git管理外）
 ├── .env.example         # .env のテンプレート
 ├── setup.sh             # 初回セットアップ
@@ -134,7 +154,7 @@ widowx_system/
 │   ├── main.py          # FastAPI サーバー（WebSocket）
 │   ├── config.py        # 設定ローダー
 │   ├── llm.py           # Ollama 連携・スキル推論
-│   ├── executor.py      # ACT コマンド実行
+│   ├── executor.py      # キャッシュ削除 + lerobot-record 実行
 │   └── requirements.txt
 └── frontend/
     ├── src/
