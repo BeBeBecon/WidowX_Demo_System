@@ -1,6 +1,7 @@
 // =====================================
 // App.jsx - メインコンポーネント
 // WebSocket接続管理・状態管理・2カラムレイアウト
+// テーマ: サイバーパンク HUD
 // =====================================
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
@@ -45,7 +46,6 @@ export default function App() {
       ws.onclose = () => {
         setConnected(false)
         setStatus('idle')
-        // 3秒後に再接続
         setTimeout(connect, 3000)
       }
 
@@ -103,7 +103,6 @@ export default function App() {
   // ----------------
   const handleSubmit = useCallback((command) => {
     if (!isConnected || isBusy) return
-    // 前回の結果を自動クリアしてから送信
     setSelected(null)
     setLogs([])
     setStatus('idle')
@@ -122,33 +121,69 @@ export default function App() {
   // レイアウト描画
   // ----------------
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-[#080818] to-blue-950 text-white p-6 font-mono">
-      {/* 背景グロー装飾 */}
+    <div className="min-h-screen text-white p-8 font-mono">
+      {/* スキャンライン */}
+      <div className="scanline" />
+
+      {/* 隅のグロー装飾 */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-3xl" />
+        <div className="absolute top-0 left-0 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto space-y-6">
-        {/* ヘッダー */}
-        <header className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-wider text-white/90">
-              WidowX Sub Agent
-            </h1>
-            <p className="text-xs text-white/40 mt-0.5">LLM-powered ACT Skill Executor</p>
-          </div>
-          {/* 接続状態インジケーター */}
-          <div className="flex items-center gap-2 text-xs text-white/50">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-500'}`} />
-            {isConnected ? 'Connected' : 'Reconnecting...'}
+      <div className="relative max-w-7xl mx-auto space-y-5">
+
+        {/* =====================================
+            ヘッダー: システム識別バー
+            ===================================== */}
+        <header className="border border-cyan-500/20 bg-[#000d1a]/80 rounded-sm px-5 py-3
+                           shadow-[0_0_30px_rgba(0,229,255,0.06)]">
+          <div className="flex items-center justify-between">
+            {/* 左: システム名 */}
+            <div className="flex items-center gap-4">
+              {/* アクセントバー */}
+              <div className="w-1 h-8 bg-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.8)]" />
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-black tracking-[0.2em] text-cyan-300 neon-text uppercase">
+                    WidowX Sub Agent
+                  </h1>
+                  <span className="text-[10px] px-2 py-0.5 border border-cyan-500/40 text-cyan-500/70 tracking-widest">
+                    v1.0
+                  </span>
+                </div>
+                <p className="text-[10px] text-cyan-500/40 tracking-[0.15em] uppercase mt-0.5">
+                  LLM-Powered ACT Skill Executor
+                </p>
+              </div>
+            </div>
+
+            {/* 右: 接続ステータス */}
+            <div className="flex items-center gap-5 text-[10px] tracking-widest uppercase">
+              <div className="flex items-center gap-2">
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  isConnected
+                    ? 'bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.9)] animate-pulse'
+                    : 'bg-red-500'
+                }`} />
+                <span className={isConnected ? 'text-cyan-400/80' : 'text-red-400/80'}>
+                  {isConnected ? 'System Online' : 'Reconnecting'}
+                </span>
+              </div>
+              {/* 装飾的な区切り */}
+              <div className="text-cyan-500/20">|</div>
+              <span className="text-cyan-500/30">WS://LOCALHOST</span>
+            </div>
           </div>
         </header>
 
-        {/* メイン2カラム */}
+        {/* =====================================
+            メイン2カラム
+            ===================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
           {/* 左カラム: 命令入力 → スキル一覧 */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <CommandInput
               onSubmit={handleSubmit}
               onEmergencyStop={handleEmergencyStop}
@@ -159,7 +194,7 @@ export default function App() {
           </div>
 
           {/* 右カラム: ステータス → ログ */}
-          <div className="space-y-4">
+          <div className="space-y-5">
             <StatusPanel
               status={status}
               selectedSkill={selectedSkill}
@@ -168,6 +203,7 @@ export default function App() {
             />
             <LogPanel logs={logs} />
           </div>
+
         </div>
       </div>
     </div>

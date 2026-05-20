@@ -20,6 +20,31 @@ FastAPI バックエンド
 
 ---
 
+## Ollama の管理（Linux）
+
+Linux では Ollama がシステムサービスとして自動起動する。
+
+```bash
+# 状態確認
+systemctl status ollama
+
+# 一時停止（次回PC起動時は自動起動される）
+sudo systemctl stop ollama
+
+# 自動起動を無効化（共有PCでメモリを節約したい場合）
+sudo systemctl disable ollama
+
+# 手動で起動
+sudo systemctl start ollama
+
+# モデル一覧確認
+ollama list
+```
+
+> 共有PCの場合は `disable` しておき、デモ前に `start` するのを推奨。
+
+---
+
 ## セットアップ
 
 ### 1. 初回インストール
@@ -70,7 +95,7 @@ bash start_backend.sh
 bash start_frontend.sh
 ```
 
-ブラウザで `http://localhost:5173` を開く。
+ブラウザで `http://localhost:5278` を開く。
 
 ---
 

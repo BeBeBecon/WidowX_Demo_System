@@ -1,17 +1,17 @@
 // ----------------
 // LogPanel.jsx
 // バックエンドから受信したログ行をリアルタイム表示する
-// 新しい行が来たら自動スクロール
+// ターミナル風スタイル: グリーンオン ブラック
 // ----------------
 import { useEffect, useRef } from 'react'
 
 // ログ行の種別に応じて色を変える
 const lineColor = (line) => {
   if (line.startsWith('[ERROR]'))    return 'text-red-400'
-  if (line.startsWith('[DRY RUN]'))  return 'text-yellow-400'
+  if (line.startsWith('[DRY RUN]'))  return 'text-amber-400/80'
   if (line.startsWith('[LLM]'))      return 'text-cyan-400'
   if (line.startsWith('[INFO]'))     return 'text-emerald-400'
-  return 'text-white/60'
+  return 'text-emerald-500/60'
 }
 
 export default function LogPanel({ logs }) {
@@ -23,20 +23,40 @@ export default function LogPanel({ logs }) {
   }, [logs])
 
   return (
-    <div className="glass p-5 space-y-3">
-      <h2 className="text-sm font-semibold text-white/60 uppercase tracking-widest">
-        Execution Log
-      </h2>
+    <div className="glass p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-px h-4 bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.8)]" />
+          <h2 className="panel-label">Execution Log</h2>
+        </div>
+        {/* ターミナル感を出す装飾 */}
+        <div className="flex gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-red-500/50" />
+          <div className="w-2 h-2 rounded-full bg-yellow-500/50" />
+          <div className="w-2 h-2 rounded-full bg-emerald-500/50" />
+        </div>
+      </div>
 
-      <div className="h-48 overflow-y-auto rounded-xl bg-black/30 border border-white/5 p-3 space-y-0.5">
+      {/* ターミナル本体 */}
+      <div className="h-64 overflow-y-auto bg-black/70 border border-cyan-500/10 p-4 space-y-1
+                      shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
         {logs.length === 0 ? (
-          <p className="text-xs text-white/20 select-none">ログがここに表示されます...</p>
+          <p className="text-xs text-emerald-500/20 select-none font-mono">
+            {'>'} Awaiting command...
+            <span className="cursor-blink">_</span>
+          </p>
         ) : (
-          logs.map((line, i) => (
-            <p key={i} className={`text-xs leading-relaxed break-all ${lineColor(line)}`}>
-              {line}
+          <>
+            {logs.map((line, i) => (
+              <p key={i} className={`text-sm leading-relaxed break-all font-mono ${lineColor(line)}`}>
+                <span className="text-cyan-500/30 select-none mr-1">{'>'}</span>
+                {line}
+              </p>
+            ))}
+            <p className="text-xs text-emerald-500/30 font-mono">
+              <span className="cursor-blink">_</span>
             </p>
-          ))
+          </>
         )}
         <div ref={bottomRef} />
       </div>

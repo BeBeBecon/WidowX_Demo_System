@@ -14,3 +14,8 @@ frontend/dist/
 # OS
 .DS_Store
 *.swp
+
+# 進行管理・メモ（共有不要）
+Claude.md
+ROADMAP.md
+Roadmap.md
