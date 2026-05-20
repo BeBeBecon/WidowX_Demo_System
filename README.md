@@ -47,6 +47,18 @@ ollama list
 
 ## セットアップ
 
+### 0. Linux へのデプロイ（初回のみ）
+
+```bash
+# リポジトリ名と異なるフォルダ名でcloneする場合はフォルダ名を末尾に指定
+git clone https://github.com/BeBeBecon/WidowX_Demo_System.git widowx_system
+cd widowx_system
+
+# .env.example をコピーして編集
+cp .env.example .env
+vi .env
+```
+
 ### 1. 初回インストール
 
 ```bash
