@@ -159,6 +159,15 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
         return
 
     # ----------------
+    # Step 0: policy_path の存在確認（早期エラー）
+    # ----------------
+    resolved_policy = skill["policy_path"] if os.path.isabs(skill["policy_path"]) \
+        else os.path.join(CONFIG["lerobot_path"], skill["policy_path"])
+    if not os.path.exists(resolved_policy):
+        yield f"[ERROR] ポリシーが見つかりません: {resolved_policy}"
+        return
+
+    # ----------------
     # Step 1: eval キャッシュ削除
     # ----------------
     cache_path = await clear_eval_cache(skill)
