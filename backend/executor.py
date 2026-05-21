@@ -9,11 +9,33 @@
 # =====================================
 """
 import asyncio
+import glob
 import json
 import os
 from typing import AsyncGenerator
 
 from config import CONFIG
+
+
+# ----------------
+# 実行環境の構築（IntelRealSense 用 CUDA ライブラリのパスを注入）
+# ----------------
+def _build_env() -> dict:
+    """
+    lerobot_trossen の .venv 内に含まれる NVIDIA NPP ライブラリを
+    LD_LIBRARY_PATH に追加した環境変数辞書を返す。
+    IntelRealSense + CUDA 環境では libnppicc.so.12 が必要。
+    ファイルが見つからない場合は現在の環境をそのまま返す。
+    """
+    lerobot_path = CONFIG["lerobot_path"]
+    pattern = f"{lerobot_path}/.venv/lib/python3.*/site-packages/libnppicc.so.12"
+    matches = glob.glob(pattern)
+    env = dict(os.environ)
+    if matches:
+        npp_dir = os.path.dirname(matches[0])
+        existing = env.get("LD_LIBRARY_PATH", "")
+        env["LD_LIBRARY_PATH"] = f"{npp_dir}:{existing}" if existing else npp_dir
+    return env
 
 
 # ----------------
@@ -115,6 +137,7 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.STDOUT,  # stderr を stdout に合流
         cwd=CONFIG["lerobot_path"],        # uv のプロジェクトルートとして指定
+        env=_build_env(),                  # LD_LIBRARY_PATH を含む環境変数を注入
     )
 
     try:

@@ -15,7 +15,7 @@ FastAPI バックエンド
     │
     ├──▶ Ollama (LLM) ──▶ スキル選択
     │
-    └──▶ subprocess ──▶ uv run lerobot-record（LeRobot ACT 実行）
+    └──▶ subprocess ──▶ uv run --no-sync lerobot-record（LeRobot ACT 実行）
 ```
 
 ---
@@ -50,11 +50,8 @@ ollama list
 ### 0. Linux へのデプロイ（初回のみ）
 
 ```bash
-# リポジトリ名と異なるフォルダ名でcloneする場合はフォルダ名を末尾に指定
 git clone https://github.com/BeBeBecon/WidowX_Demo_System.git widowx_system
 cd widowx_system
-
-# .env.example をコピーして編集
 cp .env.example .env
 ```
 
@@ -64,42 +61,103 @@ cp .env.example .env
 bash setup.sh
 ```
 
-### 2. 環境変数の設定
+### 2. 環境変数の設定（`.env`）
 
-`.env` を編集して以下を設定する。
+`.env` を編集して各環境に合わせた値を設定する。
 
-```
-OLLAMA_HOST=http://localhost:11434               # Ollama サーバーの URL
-LEROBOT_PATH=/home/<username>/lerobot_trossen    # LeRobot のインストールパス
-ROBOT_IP=192.168.1.x                            # ロボットアームの IP アドレス
-HF_USER=your_hf_username                        # Hugging Face ユーザー名
-UV_PATH=/home/<username>/.local/bin/uv          # uv のフルパス（which uv で確認）
-DRY_RUN=false                                   # アームを動かさない場合は true
-```
+| 変数名 | 説明 | 例 |
+|--------|------|-----|
+| `OLLAMA_HOST` | Ollama サーバーの URL | `http://localhost:11434` |
+| `LEROBOT_PATH` | lerobot_trossen のインストールパス | `/home/<username>/lerobot_trossen` |
+| `ROBOT_IP` | ロボットアームの IP アドレス | `192.168.1.x` |
+| `HF_USER` | Hugging Face ユーザー名 | `your_hf_username` |
+| `UV_PATH` | uv のフルパス（`which uv` で確認） | `/home/<username>/.local/bin/uv` |
+| `DRY_RUN` | `true` にするとアームを動かさずシミュレート | `false` |
 
-> `UV_PATH` は `which uv` で確認する。
+> `UV_PATH` は `which uv` で確認する。  
+> Mac での動作確認時は `DRY_RUN=true` に設定する。
 
-### 3. スキルの定義
+### 3. スキルの設定（`config.json`）
 
-新しいACTモデルを学習したら `config.json` の該当スキルを更新する。
+`config.json` の主要設定項目と意味を以下に示す。
 
-```json
-{
-  "id": "grab_cube",
-  "name": "Grab the cube",
-  "description": "テーブル上の赤いキューブを掴む",
-  "task_name": "Grab the cube",
-  "policy_path": "/home/katsube/lerobot_trossen/outputs/train/grab_cube_act_XXXX/checkpoints/last/pretrained_model",
-  "eval_repo_suffix": "eval_grab_cube_test_run01",
-  "icon": "🟥"
-}
-```
+#### `robot` セクション
 
 | フィールド | 説明 |
 |-----------|------|
-| `task_name` | `--dataset.single_task` に渡す文字列（**学習時のタスク名と完全一致**させること） |
-| `policy_path` | 学習済みモデルのチェックポイントへの絶対パス |
-| `eval_repo_suffix` | HFキャッシュ削除・eval保存先のsuffix。実行ごとにユニークな名前にすることを推奨（例: `eval_grab_cube_run02`） |
+| `type` | ロボットタイプ（変更不要） |
+| `id` | ロボット識別子（変更不要） |
+| `max_relative_target` | 1ステップあたりの最大移動量（安全リミット） |
+| `min_time_to_move_multiplier` | 動作速度の制限係数（大きいほど遅く・安全） |
+| `cameras` | カメラ設定（シリアル番号・解像度・FPS・ウォームアップ時間） |
+
+#### `record` セクション (ポリシーの実行)
+
+| フィールド | 説明 | デフォルト |
+|-----------|------|-----------|
+| `num_episodes` | 1回の実行で評価するエピソード数 | `1`（デモは1回） |
+| `episode_time_s` | 1エピソードあたりの最大実行時間（秒） | `20` |
+| `reset_time_s` | エピソード間のリセット待ち時間（秒） | `5` |
+| `push_to_hub` | eval データを HF に送信するか | `false` |
+| `display_data` | カメラ映像をウィンドウ表示するか | `false` |
+
+#### `skills` セクション（スキルごとに設定）
+
+| フィールド | 説明 |
+|-----------|------|
+| `task_name` | `--dataset.single_task` に渡す文字列（**学習時のタスク名と完全一致**） |
+| `policy_path` | 学習済みモデルのパス（後述） |
+| `eval_repo_suffix` | eval データの保存先 suffix（実行ごとにユニークにすると後から確認できる） |
+
+### 4. 学習済みモデルの準備（`policy_path`）
+
+ポリシーパスの指定方法は2種類ある。**デモ本番ではAのローカルパスを推奨**（ネット依存なし・起動高速）。
+
+#### A. ローカルパス（推奨）
+
+**① モデルをアップロード（モデルを持っているユーザーが実行）:**
+
+```bash
+# 学習済みモデルを HuggingFace にアップロード
+cd /home/<model_owner>/lerobot_trossen
+huggingface-cli upload <HF_USER>/grab_cube_act \
+  outputs/train/<モデルフォルダ>/checkpoints/last/pretrained_model \
+  --repo-type model
+```
+
+**② モデルをダウンロード（使用するユーザーが実行）:**
+
+```bash
+cd /home/<username>/lerobot_trossen
+mkdir -p outputs/pretrained
+huggingface-cli download <HF_USER>/grab_cube_act \
+  --local-dir outputs/pretrained/grab_cube_act \
+  --repo-type model
+```
+
+**③ `config.json` の `policy_path` を更新:**
+
+```json
+"policy_path": "outputs/pretrained/grab_cube_act"
+```
+
+> `LEROBOT_PATH` 配下からの相対パスで指定する。  
+> `LEROBOT_PATH` 直下で学習した場合は `outputs/train/<フォルダ名>/checkpoints/last/pretrained_model` でもよい。
+
+#### B. HuggingFace リポジトリ ID を直接指定（インターネット必須）
+
+```json
+"policy_path": "<HF_USER>/grab_cube_act"
+```
+
+初回起動時にモデルを自動ダウンロードする。起動が遅くなるためデモ本番には不向き。
+
+### 5. LeRobot CLI の確認（初回のみ）
+
+```bash
+ls /home/<username>/lerobot_trossen/.venv/bin/lerobot*
+# → lerobot-record が存在すればOK
+```
 
 **実行フロー（本番）:**
 1. `~/.cache/huggingface/lerobot/{HF_USER}/{eval_repo_suffix}` を削除（file exists 回避）
@@ -135,7 +193,6 @@ bash start_frontend.sh
 ### サンプル命令
 
 - `キューブを掴んでください`
-- `ホームポジションに戻って`
 - `Stack the cubes on top of each other`
 
 ---
@@ -166,6 +223,16 @@ widowx_system/
     │       └── LogPanel.jsx      # 実行ログ
     └── ...
 ```
+
+---
+
+## IntelRealSense 固有の設定
+
+本システムは IntelRealSense カメラを使用するため、NVIDIA NPP ライブラリのパスが必要。  
+`executor.py` が起動時に `.venv` 内の `libnppicc.so.12` を自動検出し `LD_LIBRARY_PATH` を設定するため、**手動での `export` は不要**。
+
+> lerobot_trossen の公式マニュアルでは OpenCV カメラ（`type: opencv`）を使用するコマンド例が記載されているが、  
+> 本システムは IntelRealSense（`type: intelrealsense`）に対応した設定になっている。
 
 ---
 
