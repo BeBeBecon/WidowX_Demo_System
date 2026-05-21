@@ -158,11 +158,6 @@ huggingface-cli download <HF_USER>/grab_cube_act \
 ls /home/<username>/lerobot_trossen/.venv/bin/lerobot*
 # → lerobot-record が存在すればOK
 ```
-
-**実行フロー（本番）:**
-1. `~/.cache/huggingface/lerobot/{HF_USER}/{eval_repo_suffix}` を削除（file exists 回避）
-2. `uv run --no-sync lerobot-record ...` を実行
-
 ---
 
 ## 起動方法
@@ -233,6 +228,17 @@ widowx_system/
 
 > lerobot_trossen の公式マニュアルでは OpenCV カメラ（`type: opencv`）を使用するコマンド例が記載されているが、  
 > 本システムは IntelRealSense（`type: intelrealsense`）に対応した設定になっている。
+
+---
+
+## uv sync について
+
+`uv sync` は**実行しないこと**。
+
+推論環境では `transformers>=4.41.0` に手動更新済み（paligemma モジュール不足エラーの対策）。
+`uv sync` を実行するとロックファイルの古いバージョンに戻り、エラーが再発する。
+
+パッケージを追加・更新する場合は `uv sync` ではなく `uv pip install` を使うこと。
 
 ---
 

@@ -12,6 +12,7 @@ import asyncio
 import glob
 import json
 import os
+import shutil
 from typing import AsyncGenerator
 
 from config import CONFIG
@@ -36,6 +37,43 @@ def _build_env() -> dict:
         existing = env.get("LD_LIBRARY_PATH", "")
         env["LD_LIBRARY_PATH"] = f"{npp_dir}:{existing}" if existing else npp_dir
     return env
+
+
+# ----------------
+# ポリシー config.json の互換クリーニング
+# ----------------
+def clean_policy_config(skill: dict) -> str | None:
+    """
+    モデルの config.json に推論環境（現バージョンの ACTConfig）で無効なフィールドが
+    含まれていれば自動削除する。学習環境と推論環境のパッケージバージョン差異を吸収する。
+    変更があった場合はログメッセージを返し、変更なしの場合は None を返す。
+    """
+    policy_path = skill["policy_path"]
+    if not os.path.isabs(policy_path):
+        policy_path = os.path.join(CONFIG["lerobot_path"], policy_path)
+
+    config_path = os.path.join(policy_path, "config.json")
+    if not os.path.exists(config_path):
+        return None
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        cfg = json.load(f)
+
+    # 推論環境の ACTConfig に存在しない不要フィールド
+    invalid_fields = {"use_peft"}
+    removed = [k for k in invalid_fields if k in cfg]
+    if not removed:
+        return None
+
+    for k in removed:
+        cfg.pop(k)
+
+    shutil.copy2(config_path, config_path + ".bak")
+
+    with open(config_path, "w", encoding="utf-8") as f:
+        json.dump(cfg, f, indent=2, ensure_ascii=False)
+
+    return f"[INFO] config.json を自動修正しました (削除フィールド: {', '.join(removed)})"
 
 
 # ----------------
@@ -125,6 +163,13 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
     # ----------------
     cache_path = await clear_eval_cache(skill)
     yield f"[INFO] キャッシュ削除: {cache_path}"
+
+    # ----------------
+    # Step 1.5: ポリシー config.json クリーニング（バージョン差異の自動吸収）
+    # ----------------
+    clean_msg = clean_policy_config(skill)
+    if clean_msg:
+        yield clean_msg
 
     # ----------------
     # Step 2: lerobot-record 実行
