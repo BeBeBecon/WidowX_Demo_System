@@ -119,9 +119,15 @@ async def websocket_endpoint(ws: WebSocket):
                 await send({"type": "status", "status": "error"})
                 continue
 
+            # スキル未マッチ: 対応するスキルがない旨を通知して待機状態へ
+            if skill_id is None:
+                await send({"type": "log", "line": "[INFO] 該当するスキルが見つかりませんでした。登録済みスキルの命令をお試しください。"})
+                await send({"type": "status", "status": "idle"})
+                continue
+
             # 選択されたスキルオブジェクトを取得
             skills_map = {s["id"]: s for s in CONFIG["skills"]}
-            selected = skills_map.get(skill_id, CONFIG["skills"][0])
+            selected = skills_map[skill_id]
 
             await send({"type": "log", "line": f"[LLM] スキル選択: {selected['name']}"})
             await send({"type": "llm_result", "skill": selected})

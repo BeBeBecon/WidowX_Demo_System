@@ -1,7 +1,7 @@
 // =====================================
 // App.jsx - メインコンポーネント
 // WebSocket接続管理・状態管理・2カラムレイアウト
-// テーマ: サイバーパンク HUD
+// テーマ: Engineering Control（スレートグレー × アンバー）
 // =====================================
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
@@ -122,13 +122,10 @@ export default function App() {
   // ----------------
   return (
     <div className="min-h-screen text-white p-8 font-mono">
-      {/* スキャンライン */}
-      <div className="scanline" />
-
-      {/* 隅のグロー装飾 */}
+      {/* 隅のグロー装飾（控えめなアンバー） */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
-        <div className="absolute top-0 left-0 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-        <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-cyan-500/5 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+        <div className="absolute top-0 left-0 w-[600px] h-[300px] bg-amber-500/3 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+        <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-amber-500/3 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       </div>
 
       <div className="relative max-w-7xl mx-auto space-y-5">
@@ -136,43 +133,44 @@ export default function App() {
         {/* =====================================
             ヘッダー: システム識別バー
             ===================================== */}
-        <header className="border border-cyan-500/20 bg-[#000d1a]/80 rounded-sm px-5 py-3
-                           shadow-[0_0_30px_rgba(0,229,255,0.06)]">
+        <header className="border border-white/8 bg-[#161b22]/90 rounded-sm px-5 py-3
+                           shadow-[0_0_30px_rgba(245,158,11,0.04)]">
           <div className="flex items-center justify-between">
             {/* 左: システム名 */}
             <div className="flex items-center gap-4">
               {/* アクセントバー */}
-              <div className="w-1 h-8 bg-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.8)]" />
+              <div className="w-1 h-8 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]" />
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-xl font-black tracking-[0.2em] text-cyan-300 neon-text uppercase">
+                  <h1 className="text-xl font-black tracking-[0.15em] text-amber-300 neon-text uppercase"
+                      style={{ fontFamily: 'ui-sans-serif, system-ui, sans-serif' }}>
                     WidowX Sub Agent
                   </h1>
-                  <span className="text-[10px] px-2 py-0.5 border border-cyan-500/40 text-cyan-500/70 tracking-widest">
+                  <span className="text-[10px] px-2 py-0.5 border border-amber-500/40 text-amber-500/70 tracking-widest font-mono">
                     v1.0
                   </span>
                 </div>
-                <p className="text-[10px] text-cyan-400/60 tracking-[0.15em] uppercase mt-0.5">
+                <p className="text-[10px] text-amber-400/50 tracking-[0.15em] uppercase mt-0.5 font-mono">
                   LLM-Powered ACT Skill Executor
                 </p>
               </div>
             </div>
 
             {/* 右: 接続ステータス */}
-            <div className="flex items-center gap-5 text-[10px] tracking-widest uppercase">
+            <div className="flex items-center gap-5 text-[10px] tracking-widest uppercase font-mono">
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   isConnected
-                    ? 'bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.9)] animate-pulse'
+                    ? 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.8)] animate-pulse'
                     : 'bg-red-500'
                 }`} />
-                <span className={isConnected ? 'text-cyan-300' : 'text-red-300'}>
+                <span className={isConnected ? 'text-amber-300' : 'text-red-300'}>
                   {isConnected ? 'System Online' : 'Reconnecting'}
                 </span>
               </div>
               {/* 装飾的な区切り */}
-              <div className="text-cyan-500/20">|</div>
-              <span className="text-cyan-500/30">WS://LOCALHOST</span>
+              <div className="text-white/15">|</div>
+              <span className="text-white/25">WS://LOCALHOST</span>
             </div>
           </div>
         </header>

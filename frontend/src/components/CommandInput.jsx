@@ -26,7 +26,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
   return (
     <div className="glass p-6 space-y-5">
       <div className="flex items-center gap-2">
-        <div className="w-px h-4 bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.8)]" />
+        <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
         <h2 className="panel-label">Command Input</h2>
       </div>
 
@@ -35,7 +35,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
         <div className="relative">
           {/* 入力フィールドの左アクセントライン */}
           <div className={`absolute left-0 top-0 bottom-0 w-px transition-colors duration-300 ${
-            disabled ? 'bg-cyan-500/10' : 'bg-cyan-500/50'
+            disabled ? 'bg-white/10' : 'bg-amber-500/50'
           }`} />
           <textarea
             value={text}
@@ -43,10 +43,10 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
             placeholder="ロボットへの命令を入力（例: キューブを掴んで）"
             rows={5}
             disabled={disabled}
-            className="w-full bg-black/40 border border-cyan-500/15 rounded-none pl-4 pr-4 py-3
-                       text-base text-cyan-100 placeholder-cyan-400/30
-                       focus:outline-none focus:border-cyan-400/50
-                       focus:shadow-[0_0_15px_rgba(0,229,255,0.08)]
+            className="w-full bg-black/30 border border-white/8 rounded-none pl-4 pr-4 py-3
+                       text-base text-white/85 placeholder-white/25
+                       focus:outline-none focus:border-amber-400/40
+                       focus:shadow-[0_0_15px_rgba(245,158,11,0.06)]
                        transition-all duration-200 disabled:opacity-30
                        font-mono tracking-wide"
           />
@@ -58,16 +58,16 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
           <button
             type="submit"
             disabled={disabled || !text.trim()}
-            className="btn-neon flex-1 py-3.5 rounded-none font-bold text-base tracking-[0.15em] uppercase
-                       border border-cyan-400/40 text-cyan-300
-                       hover:border-cyan-400/80 hover:text-cyan-100
-                       hover:shadow-[0_0_15px_rgba(0,229,255,0.2)]
+            className="btn-neon flex-1 py-3.5 rounded-none font-bold text-base tracking-[0.15em] uppercase font-mono
+                       border border-amber-400/40 text-amber-300
+                       hover:border-amber-400/70 hover:text-amber-100
+                       hover:shadow-[0_0_15px_rgba(245,158,11,0.18)]
                        disabled:opacity-25 disabled:cursor-not-allowed
                        transition-all duration-200"
           >
             {isBusy ? (
               <span className="flex items-center justify-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
                 Processing...
               </span>
             ) : '▶  Execute'}
@@ -78,7 +78,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
             type="button"
             onClick={onEmergencyStop}
             disabled={!isBusy}
-            className="btn-neon px-5 py-3.5 rounded-none font-bold text-base tracking-[0.12em] uppercase
+            className="btn-neon px-5 py-3.5 rounded-none font-bold text-base tracking-[0.12em] uppercase font-mono
                        border border-red-500/50 text-red-400
                        hover:border-red-400/90 hover:text-red-300
                        hover:shadow-[0_0_15px_rgba(255,50,50,0.25)]
@@ -93,7 +93,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
 
       {/* サンプルコマンド */}
       <div className="space-y-2">
-        <p className="text-[10px] text-cyan-400/50 tracking-widest uppercase">Quick Commands</p>
+        <p className="text-[10px] text-white/30 tracking-widest uppercase font-mono">Quick Commands</p>
         <div className="flex flex-wrap gap-2">
           {SAMPLES.map(s => (
             <button
@@ -103,8 +103,8 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
               className={`px-3 py-1 text-xs rounded-none border transition-all duration-150
                          disabled:opacity-20 font-mono
                          ${s.active
-                           ? 'border-cyan-500/30 text-cyan-400/70 hover:border-cyan-400/60 hover:text-cyan-300 bg-cyan-500/5'
-                           : 'border-white/10 text-white/30 hover:border-white/20 hover:text-white/50 bg-white/2'
+                           ? 'border-amber-500/25 text-amber-400/65 hover:border-amber-400/55 hover:text-amber-300 bg-amber-500/5'
+                           : 'border-white/8 text-white/30 hover:border-white/18 hover:text-white/50 bg-white/2'
                          }`}
             >
               {s.label}

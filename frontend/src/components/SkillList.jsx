@@ -1,7 +1,7 @@
 // ----------------
 // SkillList.jsx
 // config.json から読み込んだスキル一覧を表示。
-// LLMが選択したスキルをネオンハイライト。
+// LLMが選択したスキルをアンバーハイライト。
 // grab_cube のみ実装済み、他は "(例)" タグを表示。
 // 計画中スキルは半透明で "(実装予定)" タグ。
 // ----------------
@@ -35,9 +35,9 @@ export default function SkillList({ skills, selectedSkillId }) {
   return (
     <div className="glass p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <div className="w-px h-4 bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.8)]" />
+        <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
         <h2 className="panel-label">Skill Set</h2>
-        <span className="ml-auto text-[10px] text-cyan-400/50 tracking-widest">
+        <span className="ml-auto text-[10px] text-white/30 tracking-widest font-mono">
           {skills.filter(s => s).length} LOADED
         </span>
       </div>
@@ -54,48 +54,48 @@ export default function SkillList({ skills, selectedSkillId }) {
               className={`
                 relative flex items-center gap-3 px-4 py-3.5 border transition-all duration-300
                 ${isSelected
-                  ? 'bg-cyan-500/10 border-cyan-400/60 shadow-[0_0_20px_rgba(0,229,255,0.12)]'
+                  ? 'bg-amber-500/8 border-amber-400/50 shadow-[0_0_18px_rgba(245,158,11,0.08)]'
                   : isPlanned
-                    ? 'bg-black/20 border-white/5 opacity-40'
-                    : 'bg-black/30 border-cyan-500/10 hover:border-cyan-500/25 hover:bg-cyan-500/5'
+                    ? 'bg-black/20 border-white/4 opacity-40'
+                    : 'bg-black/20 border-white/6 hover:border-amber-500/20 hover:bg-amber-500/4'
                 }
               `}
             >
               {/* 左アクセントバー（選択時のみ表示） */}
               {isSelected && (
-                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-cyan-400 shadow-[0_0_8px_rgba(0,229,255,0.9)]" />
+                <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.7)]" />
               )}
 
               {/* 番号 */}
-              <span className="text-[10px] text-cyan-500/30 w-4 shrink-0 font-mono">
+              <span className="text-[10px] text-white/25 w-4 shrink-0 font-mono">
                 {String(idx + 1).padStart(2, '0')}
               </span>
 
               <span className="text-lg shrink-0">{skill.icon ?? '🤖'}</span>
 
               <div className="flex-1 min-w-0">
-                <p className={`text-base font-semibold truncate tracking-wide ${
-                  isSelected ? 'text-cyan-100' : isPlanned ? 'text-white/40' : 'text-white/85'
+                <p className={`text-base font-semibold truncate tracking-wide font-mono ${
+                  isSelected ? 'text-amber-100' : isPlanned ? 'text-white/40' : 'text-white/80'
                 }`}>
                   {skill.name}
                 </p>
-                <p className="text-xs text-cyan-400/50 truncate mt-0.5">{skill.description}</p>
+                <p className="text-xs text-white/35 truncate mt-0.5">{skill.description}</p>
               </div>
 
               {/* バッジ */}
               <div className="flex items-center gap-1 shrink-0">
                 {isSelected && (
-                  <span className="text-[9px] px-2 py-0.5 border border-cyan-400/50 text-cyan-300 tracking-widest uppercase bg-cyan-500/10">
+                  <span className="text-[9px] px-2 py-0.5 border border-amber-400/45 text-amber-300 tracking-widest uppercase bg-amber-500/8 font-mono">
                     Active
                   </span>
                 )}
                 {isPlanned && (
-                  <span className="text-[9px] px-2 py-0.5 border border-white/10 text-white/25 tracking-widest uppercase">
+                  <span className="text-[9px] px-2 py-0.5 border border-white/10 text-white/25 tracking-widest uppercase font-mono">
                     Planned
                   </span>
                 )}
                 {!isImplemented && !isPlanned && !isSelected && (
-                  <span className="text-[9px] px-2 py-0.5 border border-cyan-500/15 text-cyan-500/30 tracking-widest uppercase">
+                  <span className="text-[9px] px-2 py-0.5 border border-white/10 text-white/25 tracking-widest uppercase font-mono">
                     例
                   </span>
                 )}

@@ -242,7 +242,39 @@ widowx_system/
 
 ---
 
-## 開発メモ（Mac環境）
+## トラブルシューティング
 
-`.env` で `DRY_RUN=true` にするとLeRobotコマンドを実行せず動作シミュレートするため、  
-Macでもバックエンドの動作確認が可能。
+### RTX 5080 (Blackwell) で CUDAカーネルエラーが発生する
+
+**症状:**
+```
+RuntimeError: CUDA error: no kernel image is available for execution on the device
+```
+
+**原因:** 標準の PyTorch が Blackwell アーキテクチャ（Compute Capability 10.0以降）のバイナリを含んでいないため。
+
+**対処手順:**
+
+**① CUDA 12.8 対応の Nightly 版 PyTorch を強制インストール**
+```bash
+VIRTUAL_ENV=/home/<username>/lerobot_trossen/.venv uv pip install \
+  --force-reinstall --pre torch torchvision torchaudio \
+  --index-url https://download.pytorch.org/whl/nightly/cu128
+```
+
+**② インストール確認（`sm_100` が含まれていればOK）**
+```bash
+uv run --no-sync python -c "import torch; print(torch.__version__); print(torch.cuda.get_arch_list())"
+# 出力例: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
+```
+
+**③ lockファイルを更新（チームで共有する場合）**
+```bash
+uv lock --upgrade-package torch --upgrade-package torchvision --upgrade-package torchaudio
+```
+
+> `uv lock` はlockファイルの更新のみ。`uv sync` とは異なり venv への巻き戻しは行わないため、上記の手動インストール結果には影響しない。
+
+---
+
+

@@ -43,11 +43,11 @@
     {
       "id": "grab_cube",
       "name": "Grab the cube",
-      "description": "テーブル上の赤いキューブを掴む",
+      "description": "テーブル上のキューブを掴む",
       "task_name": "Grab the cube",
       "policy_path": "outputs/train/grab_cube_act/checkpoints/last/pretrained_model",
       "eval_repo_suffix": "eval_grab_cube_test",
-      "icon": "🟥"
+      "icon": "⬛"
     },
     {
       "id": "place_cube",

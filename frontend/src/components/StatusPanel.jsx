@@ -1,17 +1,17 @@
 // ----------------
 // StatusPanel.jsx
 // 現在のシステム状態とLLMが選択したスキルを表示する
-// HUDスタイル: ネオン色のステータスインジケーター
+// HUDスタイル: アンバー系ステータスインジケーター
 // ----------------
 
 // ステータスごとの表示設定
 const STATUS_CONFIG = {
-  idle:       { label: 'Standby',    sub: '待機中',    color: 'text-cyan-400/70',  dot: 'bg-cyan-400/60',   glow: '',                                          ring: false },
-  connecting: { label: 'Connecting', sub: '接続中',    color: 'text-yellow-300',   dot: 'bg-yellow-300',    glow: 'shadow-[0_0_8px_rgba(250,204,21,0.8)]',     ring: true  },
-  thinking:   { label: 'Inference',  sub: 'LLM推論中', color: 'text-amber-200',    dot: 'bg-amber-300',     glow: 'shadow-[0_0_8px_rgba(251,191,36,0.8)]',     ring: true  },
-  executing:  { label: 'Executing',  sub: '実行中',    color: 'text-cyan-200 neon-text', dot: 'bg-cyan-300', glow: 'shadow-[0_0_10px_rgba(0,229,255,0.9)]',    ring: true  },
-  done:       { label: 'Complete',   sub: '完了',      color: 'text-emerald-300',  dot: 'bg-emerald-300',   glow: 'shadow-[0_0_8px_rgba(52,211,153,0.8)]',     ring: false },
-  error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-300',      dot: 'bg-red-400',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.8)]',      ring: false },
+  idle:       { label: 'Standby',    sub: '待機中',    color: 'text-amber-400/60',  dot: 'bg-amber-400/50',  glow: '',                                           ring: false },
+  connecting: { label: 'Connecting', sub: '接続中',    color: 'text-yellow-300',    dot: 'bg-yellow-300',    glow: 'shadow-[0_0_8px_rgba(250,204,21,0.7)]',      ring: true  },
+  thinking:   { label: 'Inference',  sub: 'LLM推論中', color: 'text-amber-300',     dot: 'bg-amber-300',     glow: 'shadow-[0_0_8px_rgba(245,158,11,0.7)]',      ring: true  },
+  executing:  { label: 'Executing',  sub: '実行中',    color: 'text-amber-200 neon-text', dot: 'bg-amber-300', glow: 'shadow-[0_0_10px_rgba(245,158,11,0.8)]',   ring: true  },
+  done:       { label: 'Complete',   sub: '完了',      color: 'text-emerald-300',   dot: 'bg-emerald-300',   glow: 'shadow-[0_0_8px_rgba(52,211,153,0.7)]',      ring: false },
+  error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-300',       dot: 'bg-red-400',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.7)]',       ring: false },
 }
 
 export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) {
@@ -20,14 +20,14 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
   return (
     <div className={`glass p-5 space-y-4 transition-all duration-500 ${
       status === 'executing'
-        ? 'border-cyan-500/40 shadow-[0_0_30px_rgba(0,229,255,0.08)]'
+        ? 'border-amber-500/35 shadow-[0_0_25px_rgba(245,158,11,0.07)]'
         : status === 'error'
           ? 'border-red-500/30'
           : ''
     }`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-px h-4 bg-cyan-400 shadow-[0_0_6px_rgba(0,229,255,0.8)]" />
+          <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
           <h2 className="panel-label">System Status</h2>
         </div>
 
@@ -35,8 +35,8 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
         <button
           onClick={onReset}
           disabled={isBusy}
-          className="text-[10px] px-3 py-1 border border-cyan-500/20 text-cyan-500/40
-                     hover:border-cyan-500/50 hover:text-cyan-400
+          className="text-[10px] px-3 py-1 border border-white/10 text-white/30 font-mono
+                     hover:border-amber-500/40 hover:text-amber-400
                      disabled:opacity-20 disabled:cursor-not-allowed
                      tracking-widest uppercase transition-all duration-200 rounded-none"
         >
@@ -55,30 +55,30 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
         </div>
 
         <div>
-          <div className={`text-2xl font-black tracking-[0.15em] uppercase ${cfg.color}`}>
+          <div className={`text-2xl font-black tracking-[0.15em] uppercase font-mono ${cfg.color}`}>
             {cfg.label}
           </div>
-          <div className="text-sm text-white/50 tracking-widest mt-0.5">{cfg.sub}</div>
+          <div className="text-sm text-white/40 tracking-widest mt-0.5 font-mono">{cfg.sub}</div>
         </div>
       </div>
 
       {/* 実行中: プログレスバー */}
       {status === 'executing' && (
-        <div className="h-px w-full bg-cyan-500/10 overflow-hidden">
-          <div className="h-full bg-cyan-400/60 animate-[progress_2s_ease-in-out_infinite]"
-               style={{ animation: 'pulse 1.5s ease-in-out infinite, width 2s linear' }} />
+        <div className="h-px w-full bg-amber-500/10 overflow-hidden">
+          <div className="h-full bg-amber-400/50"
+               style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
         </div>
       )}
 
       {/* LLM選択スキル表示 */}
       {selectedSkill && (
-        <div className="border-t border-cyan-500/10 pt-4 space-y-2">
-          <p className="text-[10px] text-cyan-500/40 tracking-widest uppercase">Selected Skill</p>
-          <div className="flex items-center gap-3 bg-cyan-500/5 border border-cyan-500/15 px-4 py-3">
+        <div className="border-t border-white/6 pt-4 space-y-2">
+          <p className="text-[10px] text-white/30 tracking-widest uppercase font-mono">Selected Skill</p>
+          <div className="flex items-center gap-3 bg-amber-500/5 border border-amber-500/15 px-4 py-3">
             <span className="text-2xl">{selectedSkill.icon ?? '🤖'}</span>
             <div>
-              <p className="font-bold text-cyan-200 tracking-wide text-base">{selectedSkill.name}</p>
-              <p className="text-sm text-cyan-400/70 mt-0.5">{selectedSkill.description}</p>
+              <p className="font-bold text-amber-200 tracking-wide text-base font-mono">{selectedSkill.name}</p>
+              <p className="text-sm text-amber-400/60 mt-0.5">{selectedSkill.description}</p>
             </div>
           </div>
         </div>

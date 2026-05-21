@@ -14,8 +14,10 @@ from config import CONFIG
 # ----------------
 PROMPT_TEMPLATE = """\
 You are a robot arm skill selector.
-Select the single most appropriate skill based on the user's command.
-Respond with ONLY the skill ID (e.g., grab_cube). No explanation.
+Select the most appropriate skill ID from the list below based on the user's command.
+If no skill reasonably matches the command, respond with exactly: none
+
+Respond with ONLY the skill ID or "none". No explanation.
 
 Available skills:
 {skill_list}
@@ -33,10 +35,10 @@ def _build_skill_list(skills: list[dict]) -> str:
     return "\n".join(lines)
 
 
-async def select_skill(command: str) -> str:
+async def select_skill(command: str) -> str | None:
     """
     Ollama API を呼び出してスキルIDを推論する。
-    返り値: スキルID文字列（例: "grab_cube"）
+    返り値: スキルID文字列（例: "grab_cube"）、マッチしない場合は None
     """
     skills = CONFIG["skills"]
     skill_list_text = _build_skill_list(skills)
@@ -57,13 +59,18 @@ async def select_skill(command: str) -> str:
     # レスポンスからスキルIDを抽出・正規化
     raw = result.get("response", "").strip().lower().replace(" ", "_")
 
-    # 有効なスキルIDか検証（未知の場合は最初のスキルをフォールバック）
-    valid_ids = {s["id"] for s in skills}
-    if raw not in valid_ids:
-        # 部分一致で救済
-        for sid in valid_ids:
-            if sid in raw or raw in sid:
-                return sid
-        return skills[0]["id"]
+    # LLMが明示的に none を返した場合はスキルなしとして扱う
+    if raw == "none":
+        return None
 
-    return raw
+    # 有効なスキルIDか検証
+    valid_ids = {s["id"] for s in skills}
+    if raw in valid_ids:
+        return raw
+
+    # 部分一致で救済
+    for sid in valid_ids:
+        if sid in raw or raw in sid:
+            return sid
+
+    return None

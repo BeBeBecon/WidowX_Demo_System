@@ -4,49 +4,43 @@
 
 /* =====================================
    グローバルスタイル
-   テーマ: サイバーパンク HUD（ネオンシアン × ブラック）
+   テーマ: Engineering Control（スレートグレー × アンバー）
    ===================================== */
+
+/* ----------------
+   CSS変数: カラー一元管理
+   ---------------- */
+:root {
+  --color-bg:      #0d1117;
+  --color-panel:   #161b22;
+  --color-accent:  #F59E0B;   /* amber-400 */
+  --color-accent2: #D97706;   /* amber-500 */
+  --color-border:  rgba(255, 255, 255, 0.08);
+  --color-border-accent: rgba(245, 158, 11, 0.35);
+}
 
 /* ----------------
    ボディ: グリッドライン背景
    ---------------- */
 body {
-  background-color: #020008;
+  background-color: var(--color-bg);
   background-image:
-    linear-gradient(rgba(0, 229, 255, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 229, 255, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 
 /* ----------------
-   スキャンライン: 画面全体を周期的に走る光の帯
-   ---------------- */
-@keyframes scan {
-  0%   { transform: translateY(-4px); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateY(100vh); opacity: 0; }
-}
-.scanline {
-  position: fixed;
-  top: 0; left: 0; right: 0;
-  height: 2px;
-  background: linear-gradient(transparent, rgba(0,229,255,0.12), transparent);
-  animation: scan 10s linear infinite;
-  pointer-events: none;
-  z-index: 9999;
-}
-
-/* ----------------
-   ネオンパネル: カードの基本スタイル
+   パネル: カードの基本スタイル
    ---------------- */
 @layer components {
   .glass {
-    @apply relative bg-[#000d1a]/90 border border-cyan-500/20 rounded-sm;
+    @apply relative rounded-sm;
+    background-color: var(--color-panel);
+    border: 1px solid var(--color-border);
     box-shadow:
-      0 0 0 1px rgba(0, 229, 255, 0.05),
-      0 0 30px rgba(0, 229, 255, 0.04),
-      inset 0 0 30px rgba(0, 229, 255, 0.02);
+      0 0 0 1px rgba(245, 158, 11, 0.03),
+      0 0 30px rgba(245, 158, 11, 0.03);
   }
 
   /* コーナーブラケット装飾（左上・右下） */
@@ -54,9 +48,9 @@ body {
   .glass::after {
     content: '';
     position: absolute;
-    width: 12px;
-    height: 12px;
-    border-color: rgba(0, 229, 255, 0.6);
+    width: 10px;
+    height: 10px;
+    border-color: rgba(245, 158, 11, 0.45);
     border-style: solid;
   }
   .glass::before {
@@ -68,20 +62,22 @@ body {
     border-width: 0 2px 2px 0;
   }
 
-  /* ネオングロー付きテキスト */
+  /* アンバーグロー付きテキスト（控えめ） */
   .neon-text {
-    text-shadow: 0 0 8px rgba(0, 229, 255, 0.8), 0 0 20px rgba(0, 229, 255, 0.4);
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.5), 0 0 24px rgba(245, 158, 11, 0.2);
   }
 
-  /* セクションヘッダーラベル */
+  /* セクションヘッダーラベル: サンセリフ */
   .panel-label {
-    @apply text-sm font-bold uppercase tracking-[0.2em] text-cyan-400/90;
+    @apply text-sm font-bold uppercase tracking-[0.2em];
+    color: rgba(245, 158, 11, 0.85);
+    font-family: ui-sans-serif, system-ui, sans-serif;
     letter-spacing: 0.2em;
   }
 }
 
 /* ----------------
-   ネオンボタンベース
+   ボタンベース
    ---------------- */
 .btn-neon {
   position: relative;
@@ -91,17 +87,17 @@ body {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(0,229,255,0.08) 0%, transparent 60%);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06) 0%, transparent 60%);
   pointer-events: none;
 }
 
 /* ----------------
-   スクロールバー（細くシアン系）
+   スクロールバー（細くアンバー系）
    ---------------- */
 ::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-track { background: rgba(0,229,255,0.03); }
-::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.25); border-radius: 2px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(0,229,255,0.5); }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.02); }
+::-webkit-scrollbar-thumb { background: rgba(245, 158, 11, 0.25); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(245, 158, 11, 0.5); }
 
 /* テキストエリアのリサイズ禁止 */
 textarea { resize: none; }
