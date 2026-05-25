@@ -2,7 +2,9 @@
 // StatusPanel.jsx
 // 現在のシステム状態とLLMが選択したスキルを表示する
 // HUDスタイル: アンバー系ステータスインジケーター
+// executing 時に経過/全体のプログレスバーと残り秒数を表示
 // ----------------
+import { useEffect, useRef, useState } from 'react'
 
 // ステータスごとの表示設定
 const STATUS_CONFIG = {
@@ -14,8 +16,31 @@ const STATUS_CONFIG = {
   error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-300',       dot: 'bg-red-400',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.7)]',       ring: false },
 }
 
-export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) {
+export default function StatusPanel({ status, selectedSkill, onReset, isBusy, episodeTimeS }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.idle
+
+  // ----------------
+  // 経過秒カウンター（executing 中のみ動作）
+  // ----------------
+  const [elapsed, setElapsed] = useState(0)
+  const timerRef = useRef(null)
+
+  useEffect(() => {
+    if (status === 'executing') {
+      setElapsed(0)
+      timerRef.current = setInterval(() => {
+        setElapsed(s => s + 1)
+      }, 1000)
+    } else {
+      clearInterval(timerRef.current)
+    }
+    return () => clearInterval(timerRef.current)
+  }, [status])
+
+  // プログレスバー計算
+  const total    = episodeTimeS ?? 20
+  const progress = Math.min(elapsed / total, 1)
+  const remaining = Math.max(total - elapsed, 0)
 
   return (
     <div className={`glass p-5 space-y-4 transition-all duration-500 ${
@@ -62,11 +87,23 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
         </div>
       </div>
 
-      {/* 実行中: プログレスバー */}
+      {/* ----------------
+          実行中: 経過/全体のリアルタイムプログレスバー
+          ---------------- */}
       {status === 'executing' && (
-        <div className="h-px w-full bg-amber-500/10 overflow-hidden">
-          <div className="h-full bg-amber-400/50"
-               style={{ animation: 'pulse 1.5s ease-in-out infinite' }} />
+        <div className="space-y-1.5">
+          {/* バー本体 */}
+          <div className="h-px w-full bg-white/8 overflow-hidden">
+            <div
+              className="h-full bg-amber-400/60 transition-all duration-1000 ease-linear"
+              style={{ width: `${progress * 100}%` }}
+            />
+          </div>
+          {/* 残り秒数テキスト */}
+          <div className="flex justify-between text-[10px] font-mono text-white/30 tracking-widest">
+            <span>{elapsed}s elapsed</span>
+            <span>{remaining}s remaining</span>
+          </div>
         </div>
       )}
 

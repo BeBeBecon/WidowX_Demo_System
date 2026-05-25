@@ -2,8 +2,10 @@
 // CommandInput.jsx
 // ユーザーがテキスト命令を入力して送信するフォーム
 // 実行ボタンの横に緊急停止ボタンを配置（実行中のみ有効）
+// ↑↓キーでコマンド履歴ナビゲーション対応
+// prefill props でスキルカードからのワンクリック入力に対応
 // ----------------
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 // デモ用サンプルコマンド（実装済み・計画中を明示）
 const SAMPLES = [
@@ -14,13 +16,68 @@ const SAMPLES = [
   { label: 'Stack the cubes on top of each other', active: true },
 ]
 
-export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBusy }) {
-  const [text, setText] = useState('')
+export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBusy, prefill }) {
+  const [text, setText]               = useState('')
+  // ----------------
+  // コマンド履歴管理
+  // historyIndex: -1 = 現在入力中, 0 = 最新, length-1 = 最古
+  // ----------------
+  const [history, setHistory]         = useState([])
+  const [historyIndex, setHistoryIndex] = useState(-1)
+
+  // ----------------
+  // prefill 変化を検知してテキストにセット（スキルカードクリック時）
+  // seq が変わるたびに発火するので同一テキスト連打にも対応
+  // ----------------
+  useEffect(() => {
+    if (prefill?.text) {
+      setText(prefill.text)
+      setHistoryIndex(-1)
+    }
+  }, [prefill])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!text.trim() || disabled) return
-    onSubmit(text.trim())
+    const cmd = text.trim()
+    // 直前と重複しない場合のみ履歴に追加
+    setHistory(prev => (prev[0] === cmd ? prev : [cmd, ...prev].slice(0, 50)))
+    setHistoryIndex(-1)
+    onSubmit(cmd)
+  }
+
+  // ----------------
+  // ↑↓キーで履歴ナビゲーション（ターミナル風）
+  // ----------------
+  const handleKeyDown = (e) => {
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHistory(prev => {
+        const next = Math.min(historyIndex + 1, prev.length - 1)
+        setHistoryIndex(next)
+        if (prev[next] !== undefined) setText(prev[next])
+        return prev
+      })
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      if (historyIndex <= 0) {
+        setHistoryIndex(-1)
+        setText('')
+      } else {
+        setHistory(prev => {
+          const next = historyIndex - 1
+          setHistoryIndex(next)
+          if (prev[next] !== undefined) setText(prev[next])
+          return prev
+        })
+      }
+    }
+  }
+
+  // Quick Commands クリック: テキストセット + 履歴追加
+  const handleQuickClick = (label) => {
+    setText(label)
+    setHistoryIndex(-1)
   }
 
   return (
@@ -28,6 +85,12 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
       <div className="flex items-center gap-2">
         <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
         <h2 className="panel-label">Command Input</h2>
+        {/* 履歴件数インジケーター */}
+        {history.length > 0 && (
+          <span className="ml-auto text-[10px] text-white/25 tracking-widest font-mono">
+            HIST {history.length}
+          </span>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
@@ -40,6 +103,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
           <textarea
             value={text}
             onChange={e => setText(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder="ロボットへの命令を入力（例: キューブを掴んで）"
             rows={5}
             disabled={disabled}
@@ -98,7 +162,7 @@ export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBu
           {SAMPLES.map(s => (
             <button
               key={s.label}
-              onClick={() => setText(s.label)}
+              onClick={() => handleQuickClick(s.label)}
               disabled={disabled}
               className={`px-3 py-1 text-xs rounded-none border transition-all duration-150
                          disabled:opacity-20 font-mono

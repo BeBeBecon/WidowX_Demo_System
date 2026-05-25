@@ -4,6 +4,7 @@
 // LLMが選択したスキルをアンバーハイライト。
 // grab_cube のみ実装済み、他は "(例)" タグを表示。
 // 計画中スキルは半透明で "(実装予定)" タグ。
+// planned 以外のカードはクリックで CommandInput に task_name を送る。
 // ----------------
 
 // デモ展示用の計画中スキル（grab_cube の直後に挿入、バックエンドには送らない）
@@ -24,7 +25,7 @@ const PLANNED_SKILLS = [
   },
 ]
 
-export default function SkillList({ skills, selectedSkillId }) {
+export default function SkillList({ skills, selectedSkillId, onSelect }) {
   if (!skills.length) return null
 
   // grab_cube の直後に計画中スキルを挿入
@@ -47,12 +48,15 @@ export default function SkillList({ skills, selectedSkillId }) {
           const isSelected    = skill.id === selectedSkillId
           const isImplemented = skill.id === 'grab_cube'
           const isPlanned     = skill.planned === true
+          const isClickable   = !isPlanned && onSelect
 
           return (
             <div
               key={skill.id}
+              onClick={() => isClickable && onSelect(skill.task_name ?? skill.name)}
               className={`
                 relative flex items-center gap-3 px-4 py-3.5 border transition-all duration-300
+                ${isClickable ? 'cursor-pointer' : 'cursor-default'}
                 ${isSelected
                   ? 'bg-amber-500/8 border-amber-400/50 shadow-[0_0_18px_rgba(245,158,11,0.08)]'
                   : isPlanned

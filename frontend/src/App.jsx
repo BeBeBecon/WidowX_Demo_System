@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
 import FlowDiagram from './components/FlowDiagram'
+import HistoryPanel from './components/HistoryPanel'
 import LogPanel from './components/LogPanel'
 import SkillList from './components/SkillList'
 import StatusPanel from './components/StatusPanel'
@@ -22,8 +23,23 @@ export default function App() {
   const [selectedSkill, setSelected] = useState(null)     // LLMが選択したスキル
   const [logs, setLogs]              = useState([])       // 実行ログ行配列
   const [isConnected, setConnected]  = useState(false)    // WebSocket接続状態
+  const [isDryRun, setDryRun]        = useState(null)     // DRY_RUNモードフラグ（null=未取得）
+
+  // ----------------
+  // 追加状態: 実行履歴 / スキル入力補完 / エピソード時間
+  // ----------------
+  const [execHistory, setExecHistory]   = useState([])              // 実行履歴（最新10件）
+  const [prefill, setPrefill]           = useState({ text: '', seq: 0 }) // CommandInput へのワンクリック入力（seq で同一テキスト再クリックを検知）
+  const [episodeTimeS, setEpisodeTimeS] = useState(null)             // config の episode_time_s（プログレスバー用）
 
   const wsRef = useRef(null)
+
+  // ----------------
+  // 実行追跡用 Ref（stale closure を避けるため ref で管理）
+  // ----------------
+  const execStartRef      = useRef(null)   // 実行開始時刻 (ms)
+  const currentCommandRef = useRef('')     // 現在実行中のコマンドテキスト
+  const currentSkillRef   = useRef(null)  // 現在実行中のスキルオブジェクト
 
   // ----------------
   // WebSocket初期化・自動再接続
@@ -58,6 +74,19 @@ export default function App() {
   }, [])
 
   // ----------------
+  // 実行モード取得（DRY_RUN フラグ + episode_time_s）
+  // ----------------
+  useEffect(() => {
+    fetch('/api/health')
+      .then(r => r.json())
+      .then(d => {
+        setDryRun(d.dry_run)
+        if (d.episode_time_s != null) setEpisodeTimeS(d.episode_time_s)
+      })
+      .catch(() => {})
+  }, [])
+
+  // ----------------
   // スキル一覧の取得（REST）
   // ----------------
   useEffect(() => {
@@ -74,9 +103,28 @@ export default function App() {
     switch (msg.type) {
       case 'status':
         setStatus(msg.status)
+        // executing 開始: 実行開始時刻を記録
+        if (msg.status === 'executing') {
+          execStartRef.current = Date.now()
+        }
+        // done/error: 実行履歴に追記
+        if (msg.status === 'done' || msg.status === 'error') {
+          const duration = execStartRef.current
+            ? Math.round((Date.now() - execStartRef.current) / 1000)
+            : null
+          setExecHistory(prev => [...prev, {
+            command:   currentCommandRef.current,
+            skillName: currentSkillRef.current?.name ?? null,
+            result:    msg.status,
+            duration,
+            timestamp: Date.now(),
+          }])
+          execStartRef.current = null
+        }
         break
       case 'llm_result':
         setSelected(msg.skill)
+        currentSkillRef.current = msg.skill
         break
       case 'log':
         setLogs(prev => [...prev, msg.line])
@@ -104,6 +152,8 @@ export default function App() {
   // ----------------
   const handleSubmit = useCallback((command) => {
     if (!isConnected || isBusy) return
+    currentCommandRef.current = command
+    currentSkillRef.current   = null
     setSelected(null)
     setLogs([])
     setStatus('idle')
@@ -157,8 +207,28 @@ export default function App() {
               </div>
             </div>
 
-            {/* 右: 接続ステータス */}
+            {/* 右: モードバッジ + 接続ステータス */}
             <div className="flex items-center gap-5 text-[10px] tracking-widest uppercase font-mono">
+
+              {/* DRY_RUN / LIVE モードバッジ */}
+              {isDryRun !== null && (
+                isDryRun ? (
+                  <span className="px-2.5 py-1 border border-orange-500/60 text-orange-400
+                                   bg-orange-500/10 tracking-widest font-bold
+                                   shadow-[0_0_10px_rgba(249,115,22,0.2)]">
+                    SIM MODE
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 border border-red-500/70 text-red-400
+                                   bg-red-500/10 tracking-widest font-bold
+                                   shadow-[0_0_10px_rgba(239,68,68,0.25)] animate-pulse">
+                    LIVE
+                  </span>
+                )
+              )}
+
+              <div className="text-white/15">|</div>
+
               <div className="flex items-center gap-2">
                 <span className={`w-1.5 h-1.5 rounded-full ${
                   isConnected
@@ -181,15 +251,21 @@ export default function App() {
             ===================================== */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-          {/* 左カラム: 命令入力 → スキル一覧 */}
+          {/* 左カラム: 命令入力 → スキル一覧 → 実行履歴 */}
           <div className="space-y-5">
             <CommandInput
               onSubmit={handleSubmit}
               onEmergencyStop={handleEmergencyStop}
               disabled={isBusy || !isConnected}
               isBusy={isBusy}
+              prefill={prefill}
             />
-            <SkillList skills={skills} selectedSkillId={selectedSkill?.id} />
+            <SkillList
+              skills={skills}
+              selectedSkillId={selectedSkill?.id}
+              onSelect={cmd => setPrefill(prev => ({ text: cmd, seq: prev.seq + 1 }))}
+            />
+            <HistoryPanel history={execHistory} />
           </div>
 
           {/* 右カラム: ステータス → フロー図 → ログ */}
@@ -199,6 +275,7 @@ export default function App() {
               selectedSkill={selectedSkill}
               onReset={handleReset}
               isBusy={isBusy}
+              episodeTimeS={episodeTimeS}
             />
             <FlowDiagram status={status} />
             <LogPanel logs={logs} />

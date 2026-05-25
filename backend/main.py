@@ -35,7 +35,11 @@ app.add_middleware(
 # ----------------
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "dry_run": CONFIG["dry_run"]}
+    return {
+        "status": "ok",
+        "dry_run": CONFIG["dry_run"],
+        "episode_time_s": CONFIG["record"]["episode_time_s"],
+    }
 
 
 # ----------------
