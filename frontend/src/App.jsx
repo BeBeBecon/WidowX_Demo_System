@@ -31,6 +31,7 @@ export default function App() {
   const [execHistory, setExecHistory]   = useState([])              // 実行履歴（最新10件）
   const [prefill, setPrefill]           = useState({ text: '', seq: 0 }) // CommandInput へのワンクリック入力（seq で同一テキスト再クリックを検知）
   const [episodeTimeS, setEpisodeTimeS] = useState(null)             // config の episode_time_s（プログレスバー用）
+  const [isFullscreen, setFullscreen]   = useState(false)            // 全画面モード状態
 
   const wsRef = useRef(null)
 
@@ -72,6 +73,23 @@ export default function App() {
     connect()
     return () => wsRef.current?.close()
   }, [])
+
+  // ----------------
+  // 全画面モード: fullscreenchange でEscキー退出にも追従
+  // ----------------
+  useEffect(() => {
+    const onFsChange = () => setFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', onFsChange)
+    return () => document.removeEventListener('fullscreenchange', onFsChange)
+  }, [])
+
+  const handleFullscreenToggle = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {})
+    } else {
+      document.exitFullscreen().catch(() => {})
+    }
+  }
 
   // ----------------
   // 実行モード取得（DRY_RUN フラグ + episode_time_s）
@@ -242,6 +260,20 @@ export default function App() {
               {/* 装飾的な区切り */}
               <div className="text-white/15">|</div>
               <span className="text-white/25">WS://LOCALHOST</span>
+
+              <div className="text-white/15">|</div>
+
+              {/* 全画面トグルボタン */}
+              <button
+                onClick={handleFullscreenToggle}
+                className={`px-2.5 py-1 border font-mono tracking-widest transition-all duration-200
+                  ${isFullscreen
+                    ? 'border-white/30 text-white/70 hover:border-white/60 hover:text-white'
+                    : 'border-amber-500/30 text-amber-500/50 hover:border-amber-400/60 hover:text-amber-300'
+                  }`}
+              >
+                {isFullscreen ? '✕  EXIT FULL' : '⛶  FULLSCREEN'}
+              </button>
             </div>
           </div>
         </header>
