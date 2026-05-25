@@ -38,8 +38,9 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy, ep
   }, [status])
 
   // プログレスバー計算
-  const total    = episodeTimeS ?? 20
-  const progress = Math.min(elapsed / total, 1)
+  const total     = episodeTimeS ?? 20
+  // done のとき 100%、それ以外は経過秒から算出
+  const progress  = status === 'done' ? 1 : Math.min(elapsed / total, 1)
   const remaining = Math.max(total - elapsed, 0)
 
   return (
@@ -88,24 +89,28 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy, ep
       </div>
 
       {/* ----------------
-          実行中: 経過/全体のリアルタイムプログレスバー
+          プログレスバー: 常時表示
+          executing 中は秒カウントアップで左から充填、done で 100%
           ---------------- */}
-      {status === 'executing' && (
-        <div className="space-y-1.5">
-          {/* バー本体 */}
-          <div className="h-px w-full bg-white/8 overflow-hidden">
-            <div
-              className="h-full bg-amber-400/60 transition-all duration-1000 ease-linear"
-              style={{ width: `${progress * 100}%` }}
-            />
-          </div>
-          {/* 残り秒数テキスト */}
-          <div className="flex justify-between text-[10px] font-mono text-white/30 tracking-widest">
-            <span>{elapsed}s elapsed</span>
-            <span>{remaining}s remaining</span>
-          </div>
+      <div className="space-y-1.5">
+        {/* バー本体: トラック（外枠）+ フィル（充填） */}
+        <div className="h-2 w-full bg-white/6 border border-white/8 overflow-hidden">
+          <div
+            className={`h-full transition-all duration-1000 ease-linear ${
+              status === 'done'  ? 'bg-emerald-400/70' :
+              status === 'error' ? 'bg-red-400/60'     : 'bg-amber-400/65'
+            }`}
+            style={{ width: `${progress * 100}%` }}
+          />
         </div>
-      )}
+        {/* テキスト: executing 中のみ表示、それ以外は非表示でスペース確保 */}
+        <div className={`flex justify-between text-[10px] font-mono tracking-widest transition-opacity duration-300 ${
+          status === 'executing' ? 'opacity-100 text-white/30' : 'opacity-0'
+        }`}>
+          <span>{elapsed}s elapsed</span>
+          <span>{remaining}s remaining</span>
+        </div>
+      </div>
 
       {/* LLM選択スキル表示: 常時表示でパネル高さを固定 */}
       <div className="border-t border-white/6 pt-4 space-y-2">
