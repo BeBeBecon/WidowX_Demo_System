@@ -70,19 +70,27 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy }) 
         </div>
       )}
 
-      {/* LLM選択スキル表示 */}
-      {selectedSkill && (
-        <div className="border-t border-white/6 pt-4 space-y-2">
-          <p className="text-[10px] text-white/30 tracking-widest uppercase font-mono">Selected Skill</p>
-          <div className="flex items-center gap-3 bg-amber-500/5 border border-amber-500/15 px-4 py-3">
+      {/* LLM選択スキル表示: 常時表示でパネル高さを固定 */}
+      <div className="border-t border-white/6 pt-4 space-y-2">
+        <p className="text-[10px] text-white/30 tracking-widest uppercase font-mono">Selected Skill</p>
+        {selectedSkill ? (
+          <div className="flex items-center gap-3 bg-amber-500/5 border border-amber-500/15 px-4 py-3 h-16">
             <span className="text-2xl">{selectedSkill.icon ?? '🤖'}</span>
             <div>
               <p className="font-bold text-amber-200 tracking-wide text-base font-mono">{selectedSkill.name}</p>
               <p className="text-sm text-amber-400/60 mt-0.5">{selectedSkill.description}</p>
             </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="flex items-center gap-3 border border-white/6 px-4 py-3 h-16">
+            <span className="text-2xl opacity-20">—</span>
+            <div>
+              <p className="font-bold text-white/20 tracking-wide text-base font-mono">None</p>
+              <p className="text-sm text-white/15 mt-0.5">待機中</p>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

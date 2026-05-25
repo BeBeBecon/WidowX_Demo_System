@@ -103,6 +103,41 @@ body {
 textarea { resize: none; }
 
 /* ----------------
+   フロー図: エッジ流動アニメーション
+   水平・垂直ライン上をアンバーのグラデーションが流れる
+   ---------------- */
+@keyframes flow-h {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+@keyframes flow-v {
+  0%   { background-position: center -200%; }
+  100% { background-position: center  200%; }
+}
+
+.flow-line-h {
+  background: linear-gradient(
+    90deg,
+    rgba(245, 158, 11, 0)   0%,
+    rgba(245, 158, 11, 1) 50%,
+    rgba(245, 158, 11, 0) 100%
+  );
+  background-size: 200% 100%;
+  animation: flow-h 1.0s linear infinite;
+}
+
+.flow-line-v {
+  background: linear-gradient(
+    180deg,
+    rgba(245, 158, 11, 0)   0%,
+    rgba(245, 158, 11, 1) 50%,
+    rgba(245, 158, 11, 0) 100%
+  );
+  background-size: 100% 200%;
+  animation: flow-v 1.0s linear infinite;
+}
+
+/* ----------------
    点滅カーソル（ログパネル末尾）
    ---------------- */
 @keyframes blink {

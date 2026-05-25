@@ -5,6 +5,7 @@
 // =====================================
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
+import FlowDiagram from './components/FlowDiagram'
 import LogPanel from './components/LogPanel'
 import SkillList from './components/SkillList'
 import StatusPanel from './components/StatusPanel'
@@ -191,7 +192,7 @@ export default function App() {
             <SkillList skills={skills} selectedSkillId={selectedSkill?.id} />
           </div>
 
-          {/* 右カラム: ステータス → ログ */}
+          {/* 右カラム: ステータス → フロー図 → ログ */}
           <div className="space-y-5">
             <StatusPanel
               status={status}
@@ -199,6 +200,7 @@ export default function App() {
               onReset={handleReset}
               isBusy={isBusy}
             />
+            <FlowDiagram status={status} />
             <LogPanel logs={logs} />
           </div>
 
