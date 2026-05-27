@@ -13,7 +13,6 @@ const SAMPLES = [
   { label: '手を振って',                        active: false },
   { label: 'お茶のペットボトルを運んで',        active: false },
   { label: 'ホームポジションに戻って',          active: true  },
-  { label: 'Stack the cubes on top of each other', active: true },
 ]
 
 export default function CommandInput({ onSubmit, onEmergencyStop, disabled, isBusy, prefill }) {

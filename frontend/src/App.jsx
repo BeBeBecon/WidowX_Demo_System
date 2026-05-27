@@ -24,6 +24,8 @@ export default function App() {
   const [logs, setLogs]              = useState([])       // 実行ログ行配列
   const [isConnected, setConnected]  = useState(false)    // WebSocket接続状態
   const [isDryRun, setDryRun]        = useState(null)     // DRY_RUNモードフラグ（null=未取得）
+  const [modelMode, setModelMode]    = useState(null)     // ACT | OPENVLA（null=未取得）
+  const [vlaOnline, setVlaOnline]    = useState(null)     // OpenVLAモード時の VLA Server 死活（null=未確認）
 
   // ----------------
   // 追加状態: 実行履歴 / スキル入力補完 / エピソード時間
@@ -92,7 +94,7 @@ export default function App() {
   }
 
   // ----------------
-  // 実行モード取得（DRY_RUN フラグ + episode_time_s）
+  // 実行モード取得（DRY_RUN・episode_time_s・model_mode）
   // ----------------
   useEffect(() => {
     fetch('/api/health')
@@ -100,9 +102,25 @@ export default function App() {
       .then(d => {
         setDryRun(d.dry_run)
         if (d.episode_time_s != null) setEpisodeTimeS(d.episode_time_s)
+        if (d.model_mode)             setModelMode(d.model_mode)
       })
       .catch(() => {})
   }, [])
+
+  // ----------------
+  // OpenVLA モード時: VLA Server 死活を定期ポーリング（10秒間隔）
+  // ----------------
+  useEffect(() => {
+    if (modelMode !== 'OPENVLA') return
+    const poll = () =>
+      fetch('/api/openvla/status')
+        .then(r => r.json())
+        .then(d => setVlaOnline(d.online))
+        .catch(() => setVlaOnline(false))
+    poll()
+    const id = setInterval(poll, 10000)
+    return () => clearInterval(id)
+  }, [modelMode])
 
   // ----------------
   // スキル一覧の取得（REST）
@@ -227,6 +245,39 @@ export default function App() {
 
             {/* 右: モードバッジ + 接続ステータス */}
             <div className="flex items-center gap-5 text-[10px] tracking-widest uppercase font-mono">
+
+              {/* model_mode バッジ（読み取り専用） */}
+              {modelMode && (
+                modelMode === 'OPENVLA' ? (
+                  <span className="px-2.5 py-1 border border-violet-500/60 text-violet-300
+                                   bg-violet-500/10 tracking-widest font-bold
+                                   shadow-[0_0_10px_rgba(139,92,246,0.2)]">
+                    OpenVLA
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 border border-cyan-500/50 text-cyan-400/80
+                                   bg-cyan-500/8 tracking-widest font-bold">
+                    ACT
+                  </span>
+                )
+              )}
+
+              {/* OpenVLA モード時: VLA Server 死活インジケータ */}
+              {modelMode === 'OPENVLA' && (
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    vlaOnline === null ? 'bg-white/20' :
+                    vlaOnline          ? 'bg-violet-400 shadow-[0_0_6px_rgba(167,139,250,0.8)] animate-pulse'
+                                       : 'bg-red-500'
+                  }`} />
+                  <span className={
+                    vlaOnline === null ? 'text-white/30' :
+                    vlaOnline          ? 'text-violet-300' : 'text-red-400'
+                  }>
+                    {vlaOnline === null ? 'VLA ...' : vlaOnline ? 'VLA Online' : 'VLA Offline'}
+                  </span>
+                </div>
+              )}
 
               {/* DRY_RUN / LIVE モードバッジ */}
               {isDryRun !== null && (

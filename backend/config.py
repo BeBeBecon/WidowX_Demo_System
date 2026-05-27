@@ -23,12 +23,19 @@ def load_config() -> dict:
     # ----------------
     # .env の値を注入（秘匿・環境固有の設定）
     # ----------------
-    cfg["ollama"]["host"]          = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-    cfg["robot"]["ip_address"]     = os.getenv("ROBOT_IP",    "192.168.1.4")
-    cfg["lerobot_path"]            = os.getenv("LEROBOT_PATH", "/home/ubuntu/lerobot_trossen")
-    cfg["uv_path"]                 = os.getenv("UV_PATH",      "uv")
-    cfg["hf_user"]                 = os.getenv("HF_USER",      "")
-    cfg["dry_run"]                 = os.getenv("DRY_RUN",      "false").lower() == "true"
+    cfg["ollama"]["host"]          = os.getenv("OLLAMA_HOST",    "http://localhost:11434")
+    cfg["robot"]["ip_address"]     = os.getenv("ROBOT_IP",       "192.168.1.4")
+    cfg["lerobot_path"]            = os.getenv("LEROBOT_PATH",   "/home/ubuntu/lerobot_trossen")
+    cfg["uv_path"]                 = os.getenv("UV_PATH",         "uv")
+    cfg["hf_user"]                 = os.getenv("HF_USER",         "")
+    cfg["dry_run"]                 = os.getenv("DRY_RUN",         "false").lower() == "true"
+
+    # ----------------
+    # OpenVLA 設定（.env の VLA_SERVER_URL で上書き可）
+    # ----------------
+    if "openvla" not in cfg:
+        cfg["openvla"] = {}
+    cfg["openvla"]["server_url"]   = os.getenv("VLA_SERVER_URL", cfg["openvla"].get("server_url", "http://localhost:8080"))
 
     return cfg
 

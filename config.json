@@ -1,6 +1,13 @@
 {
   "_comment": "公開設定ファイル。秘匿情報（IP・ユーザー名等）は .env に記載すること",
 
+  "model_mode": "ACT",
+
+  "openvla": {
+    "_comment": "OpenVLA モード時の VLA Server 設定。server_url は .env の VLA_SERVER_URL で上書き可",
+    "server_url": "http://localhost:8080"
+  },
+
   "ollama": {
     "model": "qwen2.5:3b",
     "timeout": 30
@@ -39,6 +46,14 @@
     "device": "cuda"
   },
 
+  "a2a": {
+    "_comment": "A2A（Agent to Agent）通信レイヤーの設定。agent_url は Main Agent から見たアクセス先URL",
+    "agent_name": "WidowX Sub Agent",
+    "agent_description": "WidowX ロボットアームを操作するサブエージェント。音声・テキスト命令からスキルを選択して実行する。",
+    "agent_url": "http://localhost:8000",
+    "agent_version": "1.0.0"
+  },
+
   "skills": [
     {
       "id": "grab_cube",
@@ -50,24 +65,6 @@
       "icon": "⬛"
     },
     {
-      "id": "place_cube",
-      "name": "Place the cube",
-      "description": "掴んだキューブを指定位置に置く",
-      "task_name": "Place the cube",
-      "policy_path": "outputs/train/place_cube_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_place_cube_test",
-      "icon": "📦"
-    },
-    {
-      "id": "stack_cubes",
-      "name": "Stack the cubes",
-      "description": "キューブを別のキューブの上に積み上げる",
-      "task_name": "Stack the cubes",
-      "policy_path": "outputs/train/stack_cubes_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_stack_cubes_test",
-      "icon": "🗼"
-    },
-    {
       "id": "home_position",
       "name": "Go to home position",
       "description": "ロボットアームをホームポジションに戻す",
@@ -75,6 +72,15 @@
       "policy_path": "outputs/train/home_position_act/checkpoints/last/pretrained_model",
       "eval_repo_suffix": "eval_home_position_test",
       "icon": "🏠"
+    },
+    {
+      "id": "wave_hand",
+      "name": "Wave hand",
+      "description": "ロボットアームを左右に振って手を振る動作をする",
+      "task_name": "Wave hand",
+      "policy_path": "outputs/train/wave_hand_act/checkpoints/last/pretrained_model",
+      "eval_repo_suffix": "eval_wave_hand_test",
+      "icon": "👋"
     }
   ]
 }
