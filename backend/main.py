@@ -203,34 +203,64 @@ async def _handle_act(ws: WebSocket, send, command: str):
 
 
 # =====================================
-# OpenVLA モード実行ハンドラ
+# OpenVLA モード実行ハンドラ（2段階 LLM 処理）
 # =====================================
 async def _handle_openvla(ws: WebSocket, send, command: str):
     """
     OpenVLA モード:
-      1. LLM でタスク文字列に整形（精度直結）
-      2. VLA Server へ送信 → アーム動作
+      Phase 1a: select_skill()          → スキル特定 + task_name（ベース文字列）確定
+      Phase 1b: format_for_openvla()    → ユーザー命令の属性を付加してタスク文字列生成
+      Phase 2:  run_vla_task()          → VLA Server へ送信 → アーム動作
     """
-
-    # Phase 1: LLM タスク整形
     await send({"type": "status", "status": "thinking"})
-    await send({"type": "log",    "line":   f"[LLM] タスク整形開始: '{command}'"})
 
-    stopped, result = await _run_with_stop_monitor(format_for_openvla(command), ws)
+    # ----------------
+    # Phase 1a: スキル選択（ACT モードと同じ推論）
+    # ----------------
+    await send({"type": "log", "line": f"[LLM] スキル推論開始: '{command}'"})
+
+    stopped, result = await _run_with_stop_monitor(select_skill(command), ws)
     if stopped:
-        await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（整形中）"})
+        await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（スキル推論中）"})
         await send({"type": "status", "status": "idle"})
         return
 
     if isinstance(result, Exception):
         err = f"{type(result).__name__}: {result}" if str(result) else type(result).__name__
-        await send({"type": "error",  "message": f"LLM整形エラー: {err}"})
+        await send({"type": "error",  "message": f"LLMスキル推論エラー: {err}"})
+        await send({"type": "status", "status": "error"})
+        return
+
+    skill_id = result
+    if skill_id is None:
+        await send({"type": "log",    "line":   "[INFO] 該当するスキルが見つかりませんでした。登録済みスキルの命令をお試しください。"})
+        await send({"type": "status", "status": "idle"})
+        return
+
+    selected  = {s["id"]: s for s in CONFIG["skills"]}[skill_id]
+    base_task = selected["task_name"]  # 例: "Grab the cube"
+    await send({"type": "log", "line": f"[LLM] スキル選択: {selected['name']} / ベースタスク: '{base_task}'"})
+
+    # ----------------
+    # Phase 1b: 属性付加（ユーザー命令から色・位置等を抽出して base_task に付加）
+    # ----------------
+    await send({"type": "log", "line": f"[LLM] 属性抽出・タスク整形中..."})
+
+    stopped, result = await _run_with_stop_monitor(format_for_openvla(command, base_task), ws)
+    if stopped:
+        await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（タスク整形中）"})
+        await send({"type": "status", "status": "idle"})
+        return
+
+    if isinstance(result, Exception):
+        err = f"{type(result).__name__}: {result}" if str(result) else type(result).__name__
+        await send({"type": "error",  "message": f"LLMタスク整形エラー: {err}"})
         await send({"type": "status", "status": "error"})
         return
 
     vla_task_str = result
-    await send({"type": "log",        "line":  f"[LLM] タスク文字列: '{vla_task_str}'"})
-    await send({"type": "llm_result", "skill": {"id": "openvla_task", "name": vla_task_str, "icon": "🤖"}})
+    await send({"type": "log",        "line":  f"[LLM] タスク文字列確定: '{vla_task_str}'"})
+    await send({"type": "llm_result", "skill": {**selected, "name": vla_task_str, "icon": "🤖"}})
 
     # Phase 2: VLA Server 実行
     await send({"type": "status", "status": "executing"})

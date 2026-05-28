@@ -77,32 +77,32 @@ async def select_skill(command: str) -> str | None:
 
 
 # ----------------
-# OpenVLA 向けプロンプト整形テンプレート
-# ユーザー命令を OpenVLA の学習フォーマットに近い簡潔な英語タスク文に変換する
+# OpenVLA 向け属性抽出テンプレート（2段階処理の Phase 1b）
+# スキル選択で確定した base_task にユーザー命令の属性（色・サイズ等）を付加する。
+# base_task のフォーマットを崩さず、属性のみを補完する（推論精度に直結）。
 # ----------------
 OPENVLA_FORMAT_TEMPLATE = """\
-You are a robot arm task formatter for OpenVLA.
-Convert the user's natural language command into a concise English task instruction
-matching the style of robot manipulation training data.
-Examples: "Grab the red cube", "Place the block on the left side", "Stack the cubes".
+You are a robot task attribute extractor.
+Base task: '{base_task}'
+Add only the relevant attributes (color, size, position, etc.) \
+from the user command to the base task. Keep the base format intact.
+If no attributes apply, return the base task as-is.
 
-Respond with ONLY the formatted task string. No explanation, no punctuation at end.
-
-Available robot skills:
-{skill_list}
+Respond with ONLY the final task string. No explanation, no punctuation at end.
 
 User command: {command}
 
 Task:"""
 
 
-async def format_for_openvla(command: str) -> str:
+async def format_for_openvla(command: str, base_task: str) -> str:
     """
-    ユーザー命令を OpenVLA 向けのタスク文字列にフォーマットする。
-    LLM が自然言語を OpenVLA の推論フォーマットに変換する（精度に直結）。
+    ユーザー命令から属性を抽出し、base_task に付加して返す（Phase 1b）。
+    base_task は select_skill() で確定したスキルの task_name を使用する。
+    例: command="黄色いキューブを掴んで", base_task="Grab the cube"
+        → "Grab the yellow cube"
     """
-    skill_list_text = _build_skill_list(CONFIG["skills"])
-    prompt = OPENVLA_FORMAT_TEMPLATE.format(skill_list=skill_list_text, command=command)
+    prompt = OPENVLA_FORMAT_TEMPLATE.format(base_task=base_task, command=command)
 
     ollama_url = f"{CONFIG['ollama']['host']}/api/generate"
     payload = {
