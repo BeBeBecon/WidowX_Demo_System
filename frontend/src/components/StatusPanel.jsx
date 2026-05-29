@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
   error:      { label: 'Error',      sub: 'エラー',    color: 'text-red-300',       dot: 'bg-red-400',       glow: 'shadow-[0_0_8px_rgba(239,68,68,0.7)]',       ring: false },
 }
 
+
 export default function StatusPanel({ status, selectedSkill, onReset, isBusy, episodeTimeS }) {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.idle
 
@@ -52,7 +53,7 @@ export default function StatusPanel({ status, selectedSkill, onReset, isBusy, ep
           : ''
     }`}>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
           <h2 className="panel-label">System Status</h2>
         </div>

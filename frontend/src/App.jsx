@@ -1,12 +1,13 @@
 // =====================================
 // App.jsx - メインコンポーネント
-// WebSocket接続管理・状態管理・2カラムレイアウト
+// WebSocket接続管理・状態管理・3カラムレイアウト
+// 左: 命令入力 + ステータス / 中: スキル一覧 + FAQ / 右: フロー図 + ログ
 // テーマ: Engineering Control（スレートグレー × アンバー）
 // =====================================
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
+import FaqPanel from './components/FaqPanel'
 import FlowDiagram from './components/FlowDiagram'
-import HistoryPanel from './components/HistoryPanel'
 import LogPanel from './components/LogPanel'
 import SkillList from './components/SkillList'
 import StatusPanel from './components/StatusPanel'
@@ -30,10 +31,13 @@ export default function App() {
   // ----------------
   // 追加状態: 実行履歴 / スキル入力補完 / エピソード時間
   // ----------------
-  const [execHistory, setExecHistory]   = useState([])              // 実行履歴（最新10件）
   const [prefill, setPrefill]           = useState({ text: '', seq: 0 }) // CommandInput へのワンクリック入力（seq で同一テキスト再クリックを検知）
   const [episodeTimeS, setEpisodeTimeS] = useState(null)             // config の episode_time_s（プログレスバー用）
   const [isFullscreen, setFullscreen]   = useState(false)            // 全画面モード状態
+  const [direction, setDirection]       = useState(null)             // OpenCV チームからの現在 direction（null=未取得）
+  const [overrideDirection, setOverrideDirection] = useState(null)  // CommandInput プルダウンで手動選択した方向（null=None）
+  const [predefinedQa, setPredefinedQa] = useState([])              // FAQパネル用の定型質問一覧
+  const [commandTemplates, setCommandTemplates] = useState({})       // direction_aware コマンドテキスト生成テンプレート
 
   const wsRef = useRef(null)
 
@@ -133,6 +137,34 @@ export default function App() {
   }, [])
 
   // ----------------
+  // 公開設定取得: FAQリスト・コマンドテンプレートを /api/config から取得
+  // ----------------
+  useEffect(() => {
+    fetch('/api/config')
+      .then(r => r.json())
+      .then(d => {
+        if (d.llm?.predefined_qa)  setPredefinedQa(d.llm.predefined_qa)
+        if (d.command_templates)   setCommandTemplates(d.command_templates)
+      })
+      .catch(() => {})
+  }, [])
+
+  // ----------------
+  // direction 定期ポーリング（3秒間隔）
+  // OpenCV チームから POST /internal/direction で更新される向き情報を反映
+  // ----------------
+  useEffect(() => {
+    const poll = () =>
+      fetch('/internal/direction')
+        .then(r => r.json())
+        .then(d => setDirection(d.direction))
+        .catch(() => {})
+    poll()
+    const id = setInterval(poll, 3000)
+    return () => clearInterval(id)
+  }, [])
+
+  // ----------------
   // WebSocketメッセージハンドラー
   // ----------------
   const handleMessage = (msg) => {
@@ -143,18 +175,7 @@ export default function App() {
         if (msg.status === 'executing') {
           execStartRef.current = Date.now()
         }
-        // done/error: 実行履歴に追記
         if (msg.status === 'done' || msg.status === 'error') {
-          const duration = execStartRef.current
-            ? Math.round((Date.now() - execStartRef.current) / 1000)
-            : null
-          setExecHistory(prev => [...prev, {
-            command:   currentCommandRef.current,
-            skillName: currentSkillRef.current?.name ?? null,
-            result:    msg.status,
-            duration,
-            timestamp: Date.now(),
-          }])
           execStartRef.current = null
         }
         break
@@ -238,7 +259,7 @@ export default function App() {
                   </span>
                 </div>
                 <p className="text-[10px] text-amber-400/50 tracking-[0.15em] uppercase mt-0.5 font-mono">
-                  LLM-Powered ACT Skill Executor
+                  LLM-Powered Teleoperation Skill Executor
                 </p>
               </div>
             </div>
@@ -254,10 +275,16 @@ export default function App() {
                                    shadow-[0_0_10px_rgba(139,92,246,0.2)]">
                     OpenVLA
                   </span>
+                ) : modelMode === 'TELEOP' ? (
+                  <span className="px-2.5 py-1 border border-teal-500/60 text-teal-300
+                                   bg-teal-500/10 tracking-widest font-bold
+                                   shadow-[0_0_10px_rgba(20,184,166,0.2)]">
+                    Teleop
+                  </span>
                 ) : (
                   <span className="px-2.5 py-1 border border-cyan-500/50 text-cyan-400/80
                                    bg-cyan-500/8 tracking-widest font-bold">
-                    ACT
+                    {modelMode}
                   </span>
                 )
               )}
@@ -277,6 +304,17 @@ export default function App() {
                     {vlaOnline === null ? 'VLA ...' : vlaOnline ? 'VLA Online' : 'VLA Offline'}
                   </span>
                 </div>
+              )}
+
+              {/* direction バッジ（OpenCV チームからの向き情報） */}
+              {direction && (
+                <span className={`px-2.5 py-1 border tracking-widest font-bold font-mono text-[10px] uppercase
+                  ${direction === 'right'  ? 'border-sky-500/50 text-sky-300 bg-sky-500/8'   :
+                    direction === 'left'   ? 'border-sky-500/50 text-sky-300 bg-sky-500/8'   :
+                                            'border-sky-500/30 text-sky-400/60 bg-sky-500/4' }
+                `}>
+                  {direction === 'right' ? '▶ RIGHT' : direction === 'left' ? '◀ LEFT' : '● CENTER'}
+                </span>
               )}
 
               {/* DRY_RUN / LIVE モードバッジ */}
@@ -330,38 +368,65 @@ export default function App() {
         </header>
 
         {/* =====================================
-            メイン2カラム
+            外側レイアウト: メインパネル + 右サイドパネル（将来用・現在非表示）
             ===================================== */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="flex gap-6 items-start">
 
-          {/* 左カラム: 命令入力 → スキル一覧 → 実行履歴 */}
-          <div className="space-y-5">
-            <CommandInput
-              onSubmit={handleSubmit}
-              onEmergencyStop={handleEmergencyStop}
-              disabled={isBusy || !isConnected}
-              isBusy={isBusy}
-              prefill={prefill}
-            />
-            <SkillList
-              skills={skills}
-              selectedSkillId={selectedSkill?.id}
-              onSelect={cmd => setPrefill(prev => ({ text: cmd, seq: prev.seq + 1 }))}
-            />
-            <HistoryPanel history={execHistory} />
-          </div>
+          {/* =====================================
+              3カラムグリッド: 左=入力操作 / 中=スキル一覧 / 右=ステータス・ログ
+              items-stretch + h-full flex-col で各列の底辺を揃える
+              ===================================== */}
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
 
-          {/* 右カラム: ステータス → フロー図 → ログ */}
-          <div className="space-y-5">
-            <StatusPanel
-              status={status}
-              selectedSkill={selectedSkill}
-              onReset={handleReset}
-              isBusy={isBusy}
-              episodeTimeS={episodeTimeS}
-            />
-            <FlowDiagram status={status} />
-            <LogPanel logs={logs} />
+              {/* 左カラム: スキル一覧（方向プルダウン付き・固定）+ FAQ（残り高さを埋める） */}
+              <div className="flex flex-col gap-5 h-full">
+                <SkillList
+                  skills={skills}
+                  selectedSkillId={selectedSkill?.id}
+                  onSelect={cmd => setPrefill(prev => ({ text: cmd, seq: prev.seq + 1 }))}
+                  globalDirection={overrideDirection ?? direction}
+                  onDirectionChange={dir => setOverrideDirection(dir)}
+                  commandTemplates={commandTemplates}
+                />
+                <div className="flex-1 min-h-0">
+                  <FaqPanel
+                    predefinedQa={predefinedQa}
+                    onSelect={q => setPrefill(prev => ({ text: q, seq: prev.seq + 1 }))}
+                    disabled={isBusy || !isConnected}
+                  />
+                </div>
+              </div>
+
+              {/* 中カラム: 命令入力（固定） + ステータス（残り高さを埋める） */}
+              <div className="flex flex-col gap-5 h-full">
+                <CommandInput
+                  onSubmit={handleSubmit}
+                  onEmergencyStop={handleEmergencyStop}
+                  disabled={isBusy || !isConnected}
+                  isBusy={isBusy}
+                  prefill={prefill}
+                />
+                <div className="flex-1 min-h-0">
+                  <StatusPanel
+                    status={status}
+                    selectedSkill={selectedSkill}
+                    onReset={handleReset}
+                    isBusy={isBusy}
+                    episodeTimeS={episodeTimeS}
+                  />
+                </div>
+              </div>
+
+              {/* 右カラム: フロー図（固定）+ ログ（残り高さを埋める） */}
+              <div className="flex flex-col gap-5 h-full">
+                <FlowDiagram status={status} />
+                <div className="flex-1 min-h-0">
+                  <LogPanel logs={logs} flexible />
+                </div>
+              </div>
+
+            </div>
           </div>
 
         </div>

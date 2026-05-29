@@ -83,15 +83,15 @@ function FlowNode({ id, isActive, variant }) {
   return (
     <div className={`relative flex flex-col items-center justify-center
                      border font-mono text-center
-                     w-36 h-16
+                     w-24 h-12
                      transition-all duration-500
                      ${s.border} ${s.text} ${s.bg} ${s.glow}`}>
       {/* アクティブ時のリングアニメーション */}
       {s.ring && (
         <span className="absolute inset-0 border border-amber-400/30 animate-ping" />
       )}
-      <span className="text-xs font-bold tracking-wider uppercase relative z-10">{label}</span>
-      <span className="text-[11px] opacity-50 mt-0.5 tracking-widest relative z-10">{sub}</span>
+      <span className="text-[10px] font-bold tracking-wider uppercase relative z-10 leading-tight">{label}</span>
+      <span className="text-[9px] opacity-50 tracking-widest relative z-10">{sub}</span>
     </div>
   )
 }
@@ -109,7 +109,7 @@ function HEdge({ isActive, bidirectional, variant }) {
   const arrowLeft  = isSuccess ? 'border-r-emerald-400/40' : isActive ? 'border-r-amber-400' : 'border-r-white/12'
 
   return (
-    <div className="flex items-center w-10 shrink-0">
+    <div className="flex items-center w-7 shrink-0">
       <div className="relative w-full flex items-center gap-0">
         {/* 左矢印（双方向のみ） */}
         {bidirectional && (
@@ -182,7 +182,7 @@ export default function FlowDiagram({ status }) {
         <div
           className="grid"
           style={{
-            gridTemplateColumns: '144px 40px 144px 40px 144px',
+            gridTemplateColumns: '96px 28px 96px 28px 96px',
             gridTemplateRows: 'auto auto auto',
             alignItems: 'center',
             justifyItems: 'center',
