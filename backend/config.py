@@ -37,6 +37,15 @@ def load_config() -> dict:
         cfg["openvla"] = {}
     cfg["openvla"]["server_url"]   = os.getenv("VLA_SERVER_URL", cfg["openvla"].get("server_url", "http://localhost:8080"))
 
+    # ----------------
+    # dataset.cache_root: $HOME 等の環境変数を展開して絶対パスに解決
+    # ----------------
+    if "dataset" not in cfg:
+        cfg["dataset"] = {}
+    cfg["dataset"]["cache_root"] = os.path.expandvars(
+        cfg["dataset"].get("cache_root", "$HOME/.cache/huggingface/lerobot")
+    )
+
     return cfg
 
 

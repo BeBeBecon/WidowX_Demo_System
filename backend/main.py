@@ -17,6 +17,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from a2a_router import router as a2a_router
 from config import CONFIG
+from direction_receiver import router as direction_router
 from executor import run_skill
 from llm import format_for_openvla, select_skill
 from openvla_client import check_vla_status, run_vla_task
@@ -43,6 +44,11 @@ app.add_middleware(
 # ----------------
 app.include_router(a2a_router)
 
+# ----------------
+# 向き指定受信ルーター登録（OpenCV チームからの内部 REST）
+# ----------------
+app.include_router(direction_router)
+
 
 # ----------------
 # ヘルスチェック（model_mode を含めて返す）
@@ -63,6 +69,18 @@ async def health():
 @app.get("/api/skills")
 async def get_skills():
     return CONFIG["skills"]
+
+
+# ----------------
+# 公開設定取得エンドポイント（フロントエンド向け）
+# 秘匿情報を除いた設定値（LLM設定・コマンドテンプレート等）を返す
+# ----------------
+@app.get("/api/config")
+async def get_config():
+    return {
+        "llm":               CONFIG.get("llm", {}),
+        "command_templates": CONFIG.get("command_templates", {}),
+    }
 
 
 # ----------------
@@ -238,7 +256,7 @@ async def _handle_openvla(ws: WebSocket, send, command: str):
         return
 
     selected  = {s["id"]: s for s in CONFIG["skills"]}[skill_id]
-    base_task = selected["task_name"]  # 例: "Grab the cube"
+    base_task = selected.get("task_name", selected["name"])  # task_name がない場合は name を使用
     await send({"type": "log", "line": f"[LLM] スキル選択: {selected['name']} / ベースタスク: '{base_task}'"})
 
     # ----------------
