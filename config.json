@@ -3,6 +3,17 @@
 
   "model_mode": "TELEOP",
 
+  "payment_demo": {
+    "_comment": "スマホ非接触決済デモ画面の表示設定。NFCタグから /payment-demo へ遷移するシナリオ用",
+    "merchant_name": "WidowX Demo Store",
+    "amount": "¥1,280",
+    "currency": "JPY",
+    "processing_duration_ms": 2200,
+    "success_message": "決済が完了しました",
+    "thank_you_message": "ありがとうございました",
+    "brand_color": "#2563eb"
+  },
+
   "openvla": {
     "_comment": "OpenVLA モード時の VLA Server 設定。server_url は .env の VLA_SERVER_URL で上書き可",
     "server_url": "http://localhost:8080"
