@@ -101,9 +101,9 @@
       "command_verb": "手を振って",
       "description": "手を振って挨拶する",
       "variants": {
-        "right":  { "repo_id": "docomoshiken1/wave_hand_right",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/wave_hand_left",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/wave_hand_center", "episode": 0 }
+        "right":  { "repo_id": "docomoshiken1/widowx_wave_right_20260528",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/widowx_wave_left_20260528",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/widowx_wave_center_20260528", "episode": 0 }
       },
       "default_direction": "center",
       "icon": "👋"
@@ -116,9 +116,9 @@
       "command_verb": "うなずいて",
       "description": "うなずいてYesのリアクションをする",
       "variants": {
-        "right":  { "repo_id": "docomoshiken1/reaction_yes_right",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/reaction_yes_left",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/reaction_yes_center", "episode": 0 }
+        "right":  { "repo_id": "docomoshiken1/widowx_reaction_right_yes_20260528",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/widowx_reaction_left_yes_20260528",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/widowx_reaction_center_yes_20260528", "episode": 0 }
       },
       "default_direction": "center",
       "icon": "✅"
@@ -131,9 +131,9 @@
       "command_verb": "首を横に振って",
       "description": "首を横に振ってNoのリアクションをする",
       "variants": {
-        "right":  { "repo_id": "docomoshiken1/reaction_no_right",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/reaction_no_left",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/reaction_no_center", "episode": 0 }
+        "right":  { "repo_id": "docomoshiken1/widowx_reaction_right_no_20260528",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/widowx_reaction_left_no_20260528",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/widowx_reaction_center_no_20260528", "episode": 0 }
       },
       "default_direction": "center",
       "icon": "❌"
@@ -144,7 +144,8 @@
       "skill_type": "replay",
       "command_verb": "スマホで非接触決済して",
       "description": "スマホをかざして非接触決済する",
-      "dataset": { "repo_id": "docomoshiken1/contactless_payment", "episode": 0 },
+      "_comment": "データセット未取得。取得後に repo_id を設定すること",
+      "dataset": { "repo_id": "docomoshiken1/widowx_contactless_payment", "episode": 0 },
       "icon": "📱"
     },
     {
@@ -153,7 +154,7 @@
       "skill_type": "replay",
       "command_verb": "ペットボトルを掴んで",
       "description": "ペットボトルを掴む",
-      "dataset": { "repo_id": "docomoshiken1/grab_bottle", "episode": 0 },
+      "dataset": { "repo_id": "docomoshiken1/widowx_grab_bottle_20260528", "episode": 0 },
       "icon": "🍶"
     },
     {
@@ -162,7 +163,7 @@
       "skill_type": "replay",
       "command_verb": "コップに水を注いで",
       "description": "コップに水を注ぐ",
-      "dataset": { "repo_id": "docomoshiken1/pour_water", "episode": 0 },
+      "dataset": { "repo_id": "docomoshiken1/widowx_pour_bottle_20260528", "episode": 0 },
       "icon": "💧"
     },
     {
