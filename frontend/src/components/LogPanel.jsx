@@ -15,7 +15,8 @@ const lineColor = (line) => {
   return 'text-white/65'
 }
 
-export default function LogPanel({ logs }) {
+// flexible=true のとき、外側が flex flex-col であることを前提に h-full で余白を埋める
+export default function LogPanel({ logs, flexible = false }) {
   const containerRef = useRef(null)
   const [copied, setCopied] = useState(false)
 
@@ -51,7 +52,7 @@ export default function LogPanel({ logs }) {
   }
 
   return (
-    <div className="glass p-5 space-y-4">
+    <div className={`glass p-5 space-y-4 ${flexible ? 'flex flex-col h-full' : ''}`}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
@@ -93,10 +94,11 @@ export default function LogPanel({ logs }) {
         </div>
       </div>
 
-      {/* ターミナル本体 */}
+      {/* ターミナル本体: flexible モードでは flex-1 で親の余白を埋める */}
       <div ref={containerRef}
-           className="h-80 overflow-y-auto bg-black/50 border border-white/6 p-4 space-y-1
-                      shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]">
+           className={`overflow-y-auto bg-black/50 border border-white/6 p-4 space-y-1
+                      shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]
+                      ${flexible ? 'flex-1 min-h-0' : 'h-80'}`}>
         {logs.length === 0 ? (
           <p className="text-sm text-white/30 select-none font-mono">
             {'>'} Awaiting command...

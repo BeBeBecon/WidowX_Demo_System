@@ -1,6 +1,24 @@
 {
   "_comment": "公開設定ファイル。秘匿情報（IP・ユーザー名等）は .env に記載すること",
 
+  "model_mode": "TELEOP",
+
+  "payment_demo": {
+    "_comment": "スマホ非接触決済デモ画面の表示設定。NFCタグから /payment-demo へ遷移するシナリオ用",
+    "merchant_name": "WidowX Demo Store",
+    "amount": "¥1,280",
+    "currency": "JPY",
+    "processing_duration_ms": 2200,
+    "success_message": "決済が完了しました",
+    "thank_you_message": "ありがとうございました",
+    "brand_color": "#2563eb"
+  },
+
+  "openvla": {
+    "_comment": "OpenVLA モード時の VLA Server 設定。server_url は .env の VLA_SERVER_URL で上書き可",
+    "server_url": "http://localhost:8080"
+  },
+
   "ollama": {
     "model": "qwen2.5:3b",
     "timeout": 30
@@ -27,7 +45,7 @@
   },
 
   "record": {
-    "_comment": "lerobot-record コマンドの共通オプション",
+    "_comment": "lerobot-record コマンドの共通オプション（ACTモード用）",
     "display_data": false,
     "push_to_hub": false,
     "num_episodes": 1,
@@ -39,42 +57,125 @@
     "device": "cuda"
   },
 
+  "dataset": {
+    "_comment": "データセット共通設定。ローカルパスは cache_root + '/' + repo_id で自動生成",
+    "cache_root": "$HOME/.cache/huggingface/lerobot"
+  },
+
+  "llm": {
+    "_comment": "LLM挙動設定。trigger_words または predefined_qa にマッチした場合のみ reaction 系スキルを選択肢に追加",
+    "yes_no_trigger_words": [
+      "できますか", "やってくれますか", "可能ですか", "できる？", "やれる？",
+      "いいえ", "違います", "できません", "ちがう", "やめて", "No",
+      "そうじゃない", "しないで"
+    ],
+    "predefined_qa": [
+      { "question": "あなたはロボットですか？",     "skill_id": "reaction_yes" },
+      { "question": "タッチ決済はできますか？",     "skill_id": "reaction_yes" },
+      { "question": "おしゃべりできますか？",       "skill_id": "reaction_no"  },
+      { "question": "天気は分かりますか？",   "skill_id": "reaction_no"  }
+    ]
+  },
+
+  "command_templates": {
+    "_comment": "direction_aware スキルのコマンドテキスト生成テンプレート。{name} にスキルの command_verb が代入される",
+    "right":  "右側の人に{name}",
+    "center": "正面の人に{name}",
+    "left":   "左側の人に{name}"
+  },
+
+  "a2a": {
+    "_comment": "A2A（Agent to Agent）通信レイヤーの設定。agent_url は Main Agent から見たアクセス先URL",
+    "agent_name": "WidowX Sub Agent",
+    "agent_description": "WidowX ロボットアームを操作するサブエージェント。音声・テキスト命令からスキルを選択して実行する。",
+    "agent_url": "http://localhost:8000",
+    "agent_version": "1.0.0"
+  },
+
   "skills": [
+    {
+      "id": "wave_hand",
+      "name": "Wave hand",
+      "skill_type": "replay",
+      "direction_aware": true,
+      "command_verb": "手を振って",
+      "description": "手を振って挨拶する",
+      "variants": {
+        "right":  { "repo_id": "docomoshiken1/wave_hand_right",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/wave_hand_left",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/wave_hand_center", "episode": 0 }
+      },
+      "default_direction": "center",
+      "icon": "👋"
+    },
+    {
+      "id": "reaction_yes",
+      "name": "Reaction yes",
+      "skill_type": "replay",
+      "direction_aware": true,
+      "command_verb": "うなずいて",
+      "description": "うなずいてYesのリアクションをする",
+      "variants": {
+        "right":  { "repo_id": "docomoshiken1/reaction_yes_right",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/reaction_yes_left",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/reaction_yes_center", "episode": 0 }
+      },
+      "default_direction": "center",
+      "icon": "✅"
+    },
+    {
+      "id": "reaction_no",
+      "name": "Reaction no",
+      "skill_type": "replay",
+      "direction_aware": true,
+      "command_verb": "首を横に振って",
+      "description": "首を横に振ってNoのリアクションをする",
+      "variants": {
+        "right":  { "repo_id": "docomoshiken1/reaction_no_right",  "episode": 0 },
+        "left":   { "repo_id": "docomoshiken1/reaction_no_left",   "episode": 0 },
+        "center": { "repo_id": "docomoshiken1/reaction_no_center", "episode": 0 }
+      },
+      "default_direction": "center",
+      "icon": "❌"
+    },
+    {
+      "id": "contactless_payment",
+      "name": "Contactless tap payment",
+      "skill_type": "replay",
+      "command_verb": "スマホで非接触決済して",
+      "description": "スマホをかざして非接触決済する",
+      "dataset": { "repo_id": "docomoshiken1/contactless_payment", "episode": 0 },
+      "icon": "📱"
+    },
+    {
+      "id": "grab_bottle",
+      "name": "Grab the bottle",
+      "skill_type": "replay",
+      "command_verb": "ペットボトルを掴んで",
+      "description": "ペットボトルを掴む",
+      "dataset": { "repo_id": "docomoshiken1/grab_bottle", "episode": 0 },
+      "icon": "🍶"
+    },
+    {
+      "id": "pour_water",
+      "name": "Pour water",
+      "skill_type": "replay",
+      "command_verb": "コップに水を注いで",
+      "description": "コップに水を注ぐ",
+      "dataset": { "repo_id": "docomoshiken1/pour_water", "episode": 0 },
+      "icon": "💧"
+    },
     {
       "id": "grab_cube",
       "name": "Grab the cube",
+      "skill_type": "replay",
+      "skill_type_alt": "act",
+      "_comment": "現在は replay で実行。skill_type_alt=act は将来の ACT 切り替え用の目印",
+      "command_verb": "キューブを掴んで",
       "description": "テーブル上のキューブを掴む",
-      "task_name": "Grab the cube",
+      "dataset": { "repo_id": "docomoshiken1/grab_cube", "episode": 0 },
       "policy_path": "outputs/train/grab_cube_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_grab_cube_test",
       "icon": "⬛"
-    },
-    {
-      "id": "place_cube",
-      "name": "Place the cube",
-      "description": "掴んだキューブを指定位置に置く",
-      "task_name": "Place the cube",
-      "policy_path": "outputs/train/place_cube_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_place_cube_test",
-      "icon": "📦"
-    },
-    {
-      "id": "stack_cubes",
-      "name": "Stack the cubes",
-      "description": "キューブを別のキューブの上に積み上げる",
-      "task_name": "Stack the cubes",
-      "policy_path": "outputs/train/stack_cubes_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_stack_cubes_test",
-      "icon": "🗼"
-    },
-    {
-      "id": "home_position",
-      "name": "Go to home position",
-      "description": "ロボットアームをホームポジションに戻す",
-      "task_name": "Go to home position",
-      "policy_path": "outputs/train/home_position_act/checkpoints/last/pretrained_model",
-      "eval_repo_suffix": "eval_home_position_test",
-      "icon": "🏠"
     }
   ]
 }

@@ -1,9 +1,9 @@
 """
 # =====================================
-# ACT実行モジュール
-# 選択されたスキルに対して以下の2ステップを実行する:
-#   Step 1: eval キャッシュの削除（file exists エラー回避）
-#   Step 2: uv run --no-sync lerobot-record でアームへ命令を送信
+# スキル実行モジュール
+# skill_type に応じて以下の実行ブランチを切り替える:
+#   replay : lerobot-replay でデータセット再生（主軸）
+#   act    : lerobot-record + ACT ポリシーで推論実行（grab_cube 将来用）
 # stdout/stderr をリアルタイムで yield する非同期ジェネレーター。
 # 緊急停止（タスクキャンセル）時は finally ブロックでサブプロセスを強制終了する。
 # =====================================
@@ -40,7 +40,81 @@ def _build_env() -> dict:
 
 
 # ----------------
-# ポリシー config.json の互換クリーニング
+# direction 解決: direction_aware スキルは現在の向きで variants から dataset を選択
+# ----------------
+def resolve_dataset(skill: dict) -> dict:
+    """
+    スキルの skill_type が replay の場合にデータセット情報を返す。
+    - direction_aware=true: direction_receiver の現在値（未設定なら default_direction）で variants から選択
+    - 通常スキル: skill['dataset'] をそのまま返す
+    """
+    if skill.get("direction_aware"):
+        # direction_receiver は循環インポート回避のため遅延インポート
+        from direction_receiver import get_current_direction
+        direction = get_current_direction() or skill.get("default_direction", "center")
+        variants = skill.get("variants", {})
+        dataset = variants.get(direction) or variants.get(skill.get("default_direction", "center"))
+        return dataset, direction
+    return skill.get("dataset", {}), None
+
+
+# ----------------
+# replay コマンド引数の組み立て（lerobot-replay）
+# ----------------
+def build_replay_args(skill: dict, dataset: dict) -> list[str]:
+    """uv run lerobot-replay の引数リストを構築する"""
+    robot      = CONFIG["robot"]
+    cache_root = CONFIG["dataset"]["cache_root"]
+    repo_id    = dataset["repo_id"]
+
+    return [
+        CONFIG["uv_path"], "run", "lerobot-replay",
+        f"--robot.type={robot['type']}",
+        f"--robot.ip_address={robot['ip_address']}",
+        f"--robot.id={robot['id']}",
+        f"--dataset.repo_id={repo_id}",
+        f"--dataset.root={cache_root}/{repo_id}",
+        f"--dataset.episode={dataset['episode']}",
+    ]
+
+
+# ----------------
+# ACT コマンド引数の組み立て（lerobot-record + ポリシー）
+# ----------------
+def build_lerobot_args(skill: dict) -> list[str]:
+    """uv run --no-sync lerobot-record の引数リストを構築する（ACTモード用）"""
+    robot   = CONFIG["robot"]
+    record  = CONFIG["record"]
+    policy  = CONFIG["policy"]
+    hf_user = CONFIG["hf_user"]
+
+    cameras_json    = json.dumps(robot["cameras"], separators=(",", ":"))
+    eval_suffix     = skill.get("eval_repo_suffix", f"eval_{skill['id']}_test")
+    repo_id         = f"{hf_user}/{eval_suffix}"
+    task_name       = skill.get("task_name", skill["name"])
+
+    return [
+        CONFIG["uv_path"], "run", "--no-sync", "lerobot-record",
+        f"--robot.type={robot['type']}",
+        f"--robot.ip_address={robot['ip_address']}",
+        f"--robot.id={robot['id']}",
+        f"--robot.max_relative_target={robot['max_relative_target']}",
+        f"--robot.min_time_to_move_multiplier={robot['min_time_to_move_multiplier']}",
+        f"--robot.cameras={cameras_json}",
+        f"--display_data={str(record['display_data']).lower()}",
+        f"--dataset.push_to_hub={str(record['push_to_hub']).lower()}",
+        f"--dataset.repo_id={repo_id}",
+        f"--dataset.num_episodes={record['num_episodes']}",
+        f"--dataset.episode_time_s={record['episode_time_s']}",
+        f"--dataset.reset_time_s={record['reset_time_s']}",
+        f"--dataset.single_task={task_name}",
+        f"--policy.path={skill['policy_path']}",
+        f"--policy.device={policy['device']}",
+    ]
+
+
+# ----------------
+# ポリシー config.json の互換クリーニング（ACT用）
 # ----------------
 def clean_policy_config(skill: dict) -> str | None:
     """
@@ -59,7 +133,6 @@ def clean_policy_config(skill: dict) -> str | None:
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = json.load(f)
 
-    # 推論環境の ACTConfig に存在しない不要フィールド
     invalid_fields = {"use_peft"}
     removed = [k for k in invalid_fields if k in cfg]
     if not removed:
@@ -69,7 +142,6 @@ def clean_policy_config(skill: dict) -> str | None:
         cfg.pop(k)
 
     shutil.copy2(config_path, config_path + ".bak")
-
     with open(config_path, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2, ensure_ascii=False)
 
@@ -77,52 +149,17 @@ def clean_policy_config(skill: dict) -> str | None:
 
 
 # ----------------
-# コマンド引数の組み立て
-# ----------------
-def build_lerobot_args(skill: dict) -> list[str]:
-    """uv run --no-sync lerobot-record の引数リストを構築する"""
-    robot  = CONFIG["robot"]
-    record = CONFIG["record"]
-    policy = CONFIG["policy"]
-    hf_user = CONFIG["hf_user"]
-
-    # カメラ設定を JSON 文字列に変換（改行なし圧縮）
-    cameras_json = json.dumps(robot["cameras"], separators=(",", ":"))
-
-    # eval データセットの HuggingFace リポジトリ ID
-    repo_id = f"{hf_user}/{skill['eval_repo_suffix']}"
-
-    return [
-        CONFIG["uv_path"], "run", "--no-sync", "lerobot-record",
-        f"--robot.type={robot['type']}",
-        f"--robot.ip_address={robot['ip_address']}",
-        f"--robot.id={robot['id']}",
-        f"--robot.max_relative_target={robot['max_relative_target']}",
-        f"--robot.min_time_to_move_multiplier={robot['min_time_to_move_multiplier']}",
-        f"--robot.cameras={cameras_json}",
-        f"--display_data={str(record['display_data']).lower()}",
-        f"--dataset.push_to_hub={str(record['push_to_hub']).lower()}",
-        f"--dataset.repo_id={repo_id}",
-        f"--dataset.num_episodes={record['num_episodes']}",
-        f"--dataset.episode_time_s={record['episode_time_s']}",
-        f"--dataset.reset_time_s={record['reset_time_s']}",
-        f"--dataset.single_task={skill['task_name']}",
-        f"--policy.path={skill['policy_path']}",
-        f"--policy.device={policy['device']}",
-    ]
-
-
-# ----------------
-# キャッシュ削除ヘルパー
+# eval キャッシュ削除ヘルパー（ACT用）
 # ----------------
 async def clear_eval_cache(skill: dict) -> str:
     """
     HuggingFace の eval キャッシュを削除する。
     同一 repo_id で再実行する際の 'file exists' エラーを防ぐ。
     """
-    hf_user = CONFIG["hf_user"]
+    hf_user    = CONFIG["hf_user"]
+    eval_suffix = skill.get("eval_repo_suffix", f"eval_{skill['id']}_test")
     cache_path = os.path.expanduser(
-        f"~/.cache/huggingface/lerobot/{hf_user}/{skill['eval_repo_suffix']}"
+        f"~/.cache/huggingface/lerobot/{hf_user}/{eval_suffix}"
     )
     proc = await asyncio.create_subprocess_exec(
         "rm", "-rf", cache_path,
@@ -133,19 +170,88 @@ async def clear_eval_cache(skill: dict) -> str:
     return cache_path
 
 
-# ----------------
+# =====================================
 # メイン実行ジェネレーター
-# ----------------
+# =====================================
 async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
     """
     スキルを実行し、出力行を非同期に yield するジェネレーター。
+    skill_type に応じて replay / act ブランチを選択する。
     DRY_RUN=true の場合はコマンドをシミュレートする（Mac/開発環境用）。
     緊急停止（タスクキャンセル）時はサブプロセスを kill して終了する。
     """
+    skill_type = skill.get("skill_type", "act")
+
+    if skill_type == "replay":
+        async for line in _run_replay(skill):
+            yield line
+    else:
+        async for line in _run_act(skill):
+            yield line
+
+
+# ----------------
+# replay ブランチ
+# ----------------
+async def _run_replay(skill: dict) -> AsyncGenerator[str, None]:
+    """lerobot-replay でデータセットを再生する"""
+    dataset, direction = resolve_dataset(skill)
+
+    if not dataset:
+        yield f"[ERROR] スキル '{skill['name']}' のデータセット設定が見つかりません"
+        return
+
+    if direction:
+        yield f"[INFO] direction: {direction} → repo_id: {dataset['repo_id']}"
+
+    args = build_replay_args(skill, dataset)
 
     # ----------------
     # ドライランモード（開発環境向け）
     # ----------------
+    if CONFIG["dry_run"]:
+        yield "[DRY RUN] 実際のコマンドは実行されません"
+        yield f"[DRY RUN] コマンド: {' '.join(args)}"
+        await asyncio.sleep(1)
+        yield f"[DRY RUN] スキル '{skill['name']}' の replay をシミュレート中..."
+        for i in range(1, 4):
+            await asyncio.sleep(0.8)
+            yield f"[DRY RUN] Step {i}/3 完了"
+        yield "[DRY RUN] 実行完了 (return code: 0)"
+        return
+
+    yield f"[INFO] コマンド: {' '.join(args)}"
+
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=CONFIG["lerobot_path"],
+        env=_build_env(),
+    )
+
+    try:
+        assert proc.stdout is not None
+        async for line in proc.stdout:
+            yield line.decode("utf-8", errors="replace").rstrip()
+
+        await proc.wait()
+        rc = proc.returncode
+        yield f"[INFO] 実行完了 (return code: {rc})" if rc == 0 else f"[ERROR] 実行失敗 (return code: {rc})"
+
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
+
+
+# ----------------
+# ACT ブランチ（grab_cube 将来用・既存ロジックを維持）
+# ----------------
+async def _run_act(skill: dict) -> AsyncGenerator[str, None]:
+    """lerobot-record + ACT ポリシーでスキルを実行する"""
+
+    # ドライランモード
     if CONFIG["dry_run"]:
         args = build_lerobot_args(skill)
         yield "[DRY RUN] 実際のコマンドは実行されません"
@@ -158,40 +264,32 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
         yield "[DRY RUN] 実行完了 (return code: 0)"
         return
 
-    # ----------------
-    # Step 0: policy_path の存在確認（早期エラー）
-    # ----------------
+    # Step 0: policy_path の存在確認
     resolved_policy = skill["policy_path"] if os.path.isabs(skill["policy_path"]) \
         else os.path.join(CONFIG["lerobot_path"], skill["policy_path"])
     if not os.path.exists(resolved_policy):
         yield f"[ERROR] ポリシーが見つかりません: {resolved_policy}"
         return
 
-    # ----------------
     # Step 1: eval キャッシュ削除
-    # ----------------
     cache_path = await clear_eval_cache(skill)
     yield f"[INFO] キャッシュ削除: {cache_path}"
 
-    # ----------------
-    # Step 1.5: ポリシー config.json クリーニング（バージョン差異の自動吸収）
-    # ----------------
+    # Step 1.5: ポリシー config.json クリーニング
     clean_msg = clean_policy_config(skill)
     if clean_msg:
         yield clean_msg
 
-    # ----------------
     # Step 2: lerobot-record 実行
-    # ----------------
     args = build_lerobot_args(skill)
     yield f"[INFO] コマンド: {' '.join(args)}"
 
     proc = await asyncio.create_subprocess_exec(
         *args,
         stdout=asyncio.subprocess.PIPE,
-        stderr=asyncio.subprocess.STDOUT,  # stderr を stdout に合流
-        cwd=CONFIG["lerobot_path"],        # uv のプロジェクトルートとして指定
-        env=_build_env(),                  # LD_LIBRARY_PATH を含む環境変数を注入
+        stderr=asyncio.subprocess.STDOUT,
+        cwd=CONFIG["lerobot_path"],
+        env=_build_env(),
     )
 
     try:
@@ -201,13 +299,9 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
 
         await proc.wait()
         rc = proc.returncode
-        if rc == 0:
-            yield f"[INFO] 実行完了 (return code: {rc})"
-        else:
-            yield f"[ERROR] 実行失敗 (return code: {rc})"
+        yield f"[INFO] 実行完了 (return code: {rc})" if rc == 0 else f"[ERROR] 実行失敗 (return code: {rc})"
 
     finally:
-        # 緊急停止や例外発生時にプロセスが残存していれば強制終了
         if proc.returncode is None:
             proc.kill()
             await proc.wait()

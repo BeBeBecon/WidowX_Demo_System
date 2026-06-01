@@ -15,11 +15,12 @@ frontend/dist/
 .DS_Store
 *.swp
 
-# 進行管理・メモ（共有不要）
+# 進行管理・メモ・開発依頼文（共有不要）
 Claude.md
 ROADMAP.md
 Roadmap.md
 MEMO.md
+開発依頼*.md
 
 # デザインバックアップ（共有不要）
 design_backup/
