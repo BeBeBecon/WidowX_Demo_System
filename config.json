@@ -144,8 +144,7 @@
       "skill_type": "replay",
       "command_verb": "スマホで非接触決済して",
       "description": "スマホをかざして非接触決済する",
-      "_comment": "データセット未取得。取得後に repo_id を設定すること",
-      "dataset": { "repo_id": "docomoshiken1/widowx_contactless_payment", "episode": 0 },
+      "dataset": { "repo_id": "docomoshiken1/widowx_contactless_payment_20260602", "episode": 0 },
       "icon": "📱"
     },
     {
