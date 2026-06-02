@@ -64,7 +64,8 @@ def resolve_dataset(skill: dict) -> dict:
 def build_replay_args(skill: dict, dataset: dict) -> list[str]:
     """uv run lerobot-replay の引数リストを構築する"""
     robot      = CONFIG["robot"]
-    cache_root = CONFIG["dataset"]["cache_root"]
+    # $HOME や ~ を含む場合に展開（subprocess は shell=False のため自動展開されない）
+    cache_root = os.path.expandvars(os.path.expanduser(CONFIG["dataset"]["cache_root"]))
     repo_id    = dataset["repo_id"]
 
     return [
