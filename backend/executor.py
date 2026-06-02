@@ -1,9 +1,10 @@
 """
 # =====================================
 # スキル実行モジュール
-# skill_type に応じて以下の実行ブランチを切り替える:
-#   replay : lerobot-replay でデータセット再生（主軸）
-#   act    : lerobot-record + ACT ポリシーで推論実行（grab_cube 将来用）
+# execution_type / skill_type に応じて以下の実行ブランチを切り替える:
+#   external_script : 外部シェルスクリプト実行（画像認識 + 方向検知 + 動作を一括担当）
+#   replay          : lerobot-replay でデータセット再生（主軸）
+#   act             : lerobot-record + ACT ポリシーで推論実行（grab_cube 将来用）
 # stdout/stderr をリアルタイムで yield する非同期ジェネレーター。
 # 緊急停止（タスクキャンセル）時は finally ブロックでサブプロセスを強制終了する。
 # =====================================
@@ -40,21 +41,10 @@ def _build_env() -> dict:
 
 
 # ----------------
-# direction 解決: direction_aware スキルは現在の向きで variants から dataset を選択
+# データセット解決: スキルの dataset フィールドをそのまま返す
 # ----------------
 def resolve_dataset(skill: dict) -> dict:
-    """
-    スキルの skill_type が replay の場合にデータセット情報を返す。
-    - direction_aware=true: direction_receiver の現在値（未設定なら default_direction）で variants から選択
-    - 通常スキル: skill['dataset'] をそのまま返す
-    """
-    if skill.get("direction_aware"):
-        # direction_receiver は循環インポート回避のため遅延インポート
-        from direction_receiver import get_current_direction
-        direction = get_current_direction() or skill.get("default_direction", "center")
-        variants = skill.get("variants", {})
-        dataset = variants.get(direction) or variants.get(skill.get("default_direction", "center"))
-        return dataset, direction
+    """replay スキルのデータセット情報を返す"""
     return skill.get("dataset", {}), None
 
 
@@ -76,6 +66,7 @@ def build_replay_args(skill: dict, dataset: dict) -> list[str]:
         f"--dataset.repo_id={repo_id}",
         f"--dataset.root={cache_root}/{repo_id}",
         f"--dataset.episode={dataset['episode']}",
+        "--play_sounds=false",
     ]
 
 
@@ -177,12 +168,17 @@ async def clear_eval_cache(skill: dict) -> str:
 async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
     """
     スキルを実行し、出力行を非同期に yield するジェネレーター。
-    skill_type に応じて replay / act ブランチを選択する。
+    execution_type: external_script → 外部シェルスクリプト（画像認識付き）
+    skill_type: replay → lerobot-replay / act → lerobot-record + ACT
     DRY_RUN=true の場合はコマンドをシミュレートする（Mac/開発環境用）。
     緊急停止（タスクキャンセル）時はサブプロセスを kill して終了する。
     """
-    skill_type = skill.get("skill_type", "act")
+    if skill.get("execution_type") == "external_script":
+        async for line in _run_external_script(skill):
+            yield line
+        return
 
+    skill_type = skill.get("skill_type", "act")
     if skill_type == "replay":
         async for line in _run_replay(skill):
             yield line
@@ -192,18 +188,65 @@ async def run_skill(skill: dict) -> AsyncGenerator[str, None]:
 
 
 # ----------------
+# 外部スクリプトブランチ（画像認識 + 方向決定 + 実行を一括担当）
+# ----------------
+async def _run_external_script(skill: dict) -> AsyncGenerator[str, None]:
+    """
+    widowx_reaction.sh を sudo 実行する。
+    スクリプト側が画像認識で方向を判断し、該当データセットを実行する。
+    """
+    ext = CONFIG["external_script"]
+    args = [
+        "sudo", "-u", ext["run_as_user"],
+        ext["script_path"],
+        skill["script_arg"],
+    ]
+
+    # ドライランモード
+    if CONFIG["dry_run"]:
+        yield "[DRY RUN] 実際のコマンドは実行されません"
+        yield f"[DRY RUN] コマンド: {' '.join(args)}"
+        await asyncio.sleep(1)
+        yield f"[DRY RUN] '{skill['script_arg']}' 実行をシミュレート中（画像認識 + 方向決定）..."
+        for i in range(1, 4):
+            await asyncio.sleep(0.8)
+            yield f"[DRY RUN] Step {i}/3 完了"
+        yield "[DRY RUN] 実行完了 (return code: 0)"
+        return
+
+    yield f"[INFO] 外部スクリプト実行: {' '.join(args)}"
+
+    proc = await asyncio.create_subprocess_exec(
+        *args,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.STDOUT,
+    )
+
+    try:
+        assert proc.stdout is not None
+        async for line in proc.stdout:
+            yield line.decode("utf-8", errors="replace").rstrip()
+
+        await proc.wait()
+        rc = proc.returncode
+        yield f"[INFO] 実行完了 (return code: {rc})" if rc == 0 else f"[ERROR] 実行失敗 (return code: {rc})"
+
+    finally:
+        if proc.returncode is None:
+            proc.kill()
+            await proc.wait()
+
+
+# ----------------
 # replay ブランチ
 # ----------------
 async def _run_replay(skill: dict) -> AsyncGenerator[str, None]:
     """lerobot-replay でデータセットを再生する"""
-    dataset, direction = resolve_dataset(skill)
+    dataset, _ = resolve_dataset(skill)
 
     if not dataset:
         yield f"[ERROR] スキル '{skill['name']}' のデータセット設定が見つかりません"
         return
-
-    if direction:
-        yield f"[INFO] direction: {direction} → repo_id: {dataset['repo_id']}"
 
     args = build_replay_args(skill, dataset)
 

@@ -24,6 +24,13 @@
     "timeout": 30
   },
 
+  "external_script": {
+    "_comment": "画像認識付きリアクションスクリプトの設定。スクリプトが方向検知から実行まで一貫して担う",
+    "script_path": "/home/share/widowx_reaction_tool/widowx_reaction.sh",
+    "run_as_user": "horio",
+    "timeout_sec": 60
+  },
+
   "robot": {
     "_comment": "ロボット本体の設定。ip_address は .env の ROBOT_IP で上書き",
     "type": "widowxai_follower_robot",
@@ -77,13 +84,6 @@
     ]
   },
 
-  "command_templates": {
-    "_comment": "direction_aware スキルのコマンドテキスト生成テンプレート。{name} にスキルの command_verb が代入される",
-    "right":  "右側の人に{name}",
-    "center": "正面の人に{name}",
-    "left":   "左側の人に{name}"
-  },
-
   "a2a": {
     "_comment": "A2A（Agent to Agent）通信レイヤーの設定。agent_url は Main Agent から見たアクセス先URL",
     "agent_name": "WidowX Sub Agent",
@@ -96,46 +96,28 @@
     {
       "id": "wave_hand",
       "name": "Wave hand",
-      "skill_type": "replay",
-      "direction_aware": true,
+      "execution_type": "external_script",
+      "script_arg": "wavehands",
       "command_verb": "手を振って",
-      "description": "手を振って挨拶する",
-      "variants": {
-        "right":  { "repo_id": "docomoshiken1/widowx_wave_right_20260528",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/widowx_wave_left_20260528",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/widowx_wave_center_20260528", "episode": 0 }
-      },
-      "default_direction": "center",
+      "description": "手を振って挨拶する（画像認識で方向自動決定）",
       "icon": "👋"
     },
     {
       "id": "reaction_yes",
       "name": "Reaction yes",
-      "skill_type": "replay",
-      "direction_aware": true,
+      "execution_type": "external_script",
+      "script_arg": "yes",
       "command_verb": "うなずいて",
-      "description": "うなずいてYesのリアクションをする",
-      "variants": {
-        "right":  { "repo_id": "docomoshiken1/widowx_reaction_right_yes_20260528",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/widowx_reaction_left_yes_20260528",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/widowx_reaction_center_yes_20260528", "episode": 0 }
-      },
-      "default_direction": "center",
+      "description": "うなずいてYesのリアクションをする（画像認識で方向自動決定）",
       "icon": "✅"
     },
     {
       "id": "reaction_no",
       "name": "Reaction no",
-      "skill_type": "replay",
-      "direction_aware": true,
+      "execution_type": "external_script",
+      "script_arg": "no",
       "command_verb": "首を横に振って",
-      "description": "首を横に振ってNoのリアクションをする",
-      "variants": {
-        "right":  { "repo_id": "docomoshiken1/widowx_reaction_right_no_20260528",  "episode": 0 },
-        "left":   { "repo_id": "docomoshiken1/widowx_reaction_left_no_20260528",   "episode": 0 },
-        "center": { "repo_id": "docomoshiken1/widowx_reaction_center_no_20260528", "episode": 0 }
-      },
-      "default_direction": "center",
+      "description": "首を横に振ってNoのリアクションをする（画像認識で方向自動決定）",
       "icon": "❌"
     },
     {

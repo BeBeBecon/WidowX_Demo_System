@@ -34,10 +34,7 @@ export default function App() {
   const [prefill, setPrefill]           = useState({ text: '', seq: 0 }) // CommandInput へのワンクリック入力（seq で同一テキスト再クリックを検知）
   const [episodeTimeS, setEpisodeTimeS] = useState(null)             // config の episode_time_s（プログレスバー用）
   const [isFullscreen, setFullscreen]   = useState(false)            // 全画面モード状態
-  const [direction, setDirection]       = useState(null)             // OpenCV チームからの現在 direction（null=未取得）
-  const [overrideDirection, setOverrideDirection] = useState(null)  // CommandInput プルダウンで手動選択した方向（null=None）
   const [predefinedQa, setPredefinedQa] = useState([])              // FAQパネル用の定型質問一覧
-  const [commandTemplates, setCommandTemplates] = useState({})       // direction_aware コマンドテキスト生成テンプレート
 
   const wsRef = useRef(null)
 
@@ -137,32 +134,17 @@ export default function App() {
   }, [])
 
   // ----------------
-  // 公開設定取得: FAQリスト・コマンドテンプレートを /api/config から取得
+  // 公開設定取得: FAQリストを /api/config から取得
   // ----------------
   useEffect(() => {
     fetch('/api/config')
       .then(r => r.json())
       .then(d => {
-        if (d.llm?.predefined_qa)  setPredefinedQa(d.llm.predefined_qa)
-        if (d.command_templates)   setCommandTemplates(d.command_templates)
+        if (d.llm?.predefined_qa) setPredefinedQa(d.llm.predefined_qa)
       })
       .catch(() => {})
   }, [])
 
-  // ----------------
-  // direction 定期ポーリング（3秒間隔）
-  // OpenCV チームから POST /internal/direction で更新される向き情報を反映
-  // ----------------
-  useEffect(() => {
-    const poll = () =>
-      fetch('/internal/direction')
-        .then(r => r.json())
-        .then(d => setDirection(d.direction))
-        .catch(() => {})
-    poll()
-    const id = setInterval(poll, 3000)
-    return () => clearInterval(id)
-  }, [])
 
   // ----------------
   // WebSocketメッセージハンドラー
@@ -306,17 +288,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* direction バッジ（OpenCV チームからの向き情報） */}
-              {direction && (
-                <span className={`px-2.5 py-1 border tracking-widest font-bold font-mono text-[10px] uppercase
-                  ${direction === 'right'  ? 'border-sky-500/50 text-sky-300 bg-sky-500/8'   :
-                    direction === 'left'   ? 'border-sky-500/50 text-sky-300 bg-sky-500/8'   :
-                                            'border-sky-500/30 text-sky-400/60 bg-sky-500/4' }
-                `}>
-                  {direction === 'right' ? '▶ RIGHT' : direction === 'left' ? '◀ LEFT' : '● CENTER'}
-                </span>
-              )}
-
               {/* DRY_RUN / LIVE モードバッジ */}
               {isDryRun !== null && (
                 isDryRun ? (
@@ -385,9 +356,6 @@ export default function App() {
                   skills={skills}
                   selectedSkillId={selectedSkill?.id}
                   onSelect={cmd => setPrefill(prev => ({ text: cmd, seq: prev.seq + 1 }))}
-                  globalDirection={overrideDirection ?? direction}
-                  onDirectionChange={dir => setOverrideDirection(dir)}
-                  commandTemplates={commandTemplates}
                 />
                 <div className="flex-1 min-h-0">
                   <FaqPanel
