@@ -6,5 +6,5 @@
 set -e
 PROJ_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$PROJ_DIR/frontend"
-echo "[Frontend] http://localhost:5173 で起動中..."
+echo "[Frontend] http://localhost:5278 で起動中..."
 npm run dev

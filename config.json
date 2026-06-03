@@ -25,9 +25,9 @@
   },
 
   "external_script": {
-    "_comment": "画像認識付きリアクションスクリプトの設定。スクリプトが方向検知から実行まで一貫して担う",
-    "script_path": "/home/share/widowx_reaction_tool/widowx_reaction.sh",
-    "run_as_user": "horio",
+    "_comment": "画像認識付きリアクションスクリプトの設定。.env の REACTION_SCRIPT_PATH / REACTION_RUN_AS_USER で上書き可。run_as_user が空の場合は sudo を使わない",
+    "script_path": "./tools/widowx_reaction_tool/widowx_reaction.sh",
+    "run_as_user": "",
     "timeout_sec": 60
   },
 
