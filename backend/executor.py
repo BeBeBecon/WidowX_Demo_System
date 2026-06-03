@@ -196,11 +196,12 @@ async def _run_external_script(skill: dict) -> AsyncGenerator[str, None]:
     スクリプト側が画像認識で方向を判断し、該当データセットを実行する。
     """
     ext = CONFIG["external_script"]
-    args = [
-        "sudo", "-u", ext["run_as_user"],
-        ext["script_path"],
-        skill["script_arg"],
-    ]
+    # run_as_user が設定されている場合のみ sudo -u を付与する
+    # tools/ 統合後は空文字（sudo不要）がデフォルト
+    if ext.get("run_as_user"):
+        args = ["sudo", "-u", ext["run_as_user"], ext["script_path"], skill["script_arg"]]
+    else:
+        args = [ext["script_path"], skill["script_arg"]]
 
     # ドライランモード
     if CONFIG["dry_run"]:

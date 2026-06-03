@@ -25,7 +25,7 @@ def load_config() -> dict:
     # ----------------
     cfg["ollama"]["host"]          = os.getenv("OLLAMA_HOST",    "http://localhost:11434")
     cfg["robot"]["ip_address"]     = os.getenv("ROBOT_IP",       "192.168.1.4")
-    cfg["lerobot_path"]            = os.getenv("LEROBOT_PATH",   "/home/ubuntu/lerobot_trossen")
+    cfg["lerobot_path"]            = os.getenv("LEROBOT_PATH",   str(Path.home() / "lerobot_trossen"))
     cfg["uv_path"]                 = os.getenv("UV_PATH",         "uv")
     cfg["hf_user"]                 = os.getenv("HF_USER",         "")
     cfg["dry_run"]                 = os.getenv("DRY_RUN",         "false").lower() == "true"
@@ -45,6 +45,21 @@ def load_config() -> dict:
     cfg["dataset"]["cache_root"] = os.path.expandvars(
         cfg["dataset"].get("cache_root", "$HOME/.cache/huggingface/lerobot")
     )
+
+    # ----------------
+    # external_script: script_path を絶対パスに解決、run_as_user を .env で上書き可
+    # run_as_user が空の場合は sudo を使わない（tools/ 統合後はデフォルト空）
+    # ----------------
+    proj_dir = str(Path(__file__).parent.parent)
+    if "external_script" not in cfg:
+        cfg["external_script"] = {}
+    raw_path = cfg["external_script"].get("script_path", "./tools/widowx_reaction_tool/widowx_reaction.sh")
+    # 相対パスはプロジェクトルートからの絶対パスに展開
+    if not os.path.isabs(raw_path):
+        raw_path = os.path.join(proj_dir, raw_path)
+    cfg["external_script"]["script_path"]  = os.getenv("REACTION_SCRIPT_PATH", raw_path)
+    cfg["external_script"]["run_as_user"]  = os.getenv("REACTION_RUN_AS_USER",
+                                                        cfg["external_script"].get("run_as_user", ""))
 
     return cfg
 

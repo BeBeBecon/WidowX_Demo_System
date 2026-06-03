@@ -1,7 +1,9 @@
 # WidowX Sub Agent
 
 ロボットアーム（WidowX）をテキスト命令で操作するデモアプリケーション。  
-ローカルLLM（Ollama）がスキルを選択し、LeRobotのACTモデルで動作を実行する。
+ローカルLLM（Ollama）がスキルを選択し、LeRobot のデータセットを再生してアームを動作させる。
+
+> **セットアップ手順は [セットアップ手順書.md](セットアップ手順書.md) を参照してください。**
 
 ---
 
@@ -15,149 +17,10 @@ FastAPI バックエンド
     │
     ├──▶ Ollama (LLM) ──▶ スキル選択
     │
-    └──▶ subprocess ──▶ uv run --no-sync lerobot-record（LeRobot ACT 実行）
+    └──▶ subprocess ──▶ uv run lerobot-replay（LeRobot データセット再生）
+                    └──▶ 外部スクリプト（widowx_reaction_tool）
 ```
 
----
-
-## Ollama の管理（Linux）
-
-Linux では Ollama がシステムサービスとして自動起動する。
-
-```bash
-# 状態確認
-systemctl status ollama
-
-# 一時停止（次回PC起動時は自動起動される）
-sudo systemctl stop ollama
-
-# 自動起動を無効化（共有PCでメモリを節約したい場合）
-sudo systemctl disable ollama
-
-# 手動で起動
-sudo systemctl start ollama
-
-# モデル一覧確認（qwen2.5:3b が表示されればOK）
-ollama list
-```
-
-> 共有PCの場合は `disable` しておき、デモ前に `start` するのを推奨。
-
----
-
-## セットアップ
-
-### 0. Linux へのデプロイ（初回のみ）
-
-```bash
-git clone https://github.com/BeBeBecon/WidowX_Demo_System.git widowx_system
-cd widowx_system
-cp .env.example .env
-```
-
-### 1. 初回インストール
-
-```bash
-bash setup.sh
-```
-
-### 2. 環境変数の設定（`.env`）
-
-`.env` を編集して各環境に合わせた値を設定する。
-
-| 変数名 | 説明 | 例 |
-|--------|------|-----|
-| `OLLAMA_HOST` | Ollama サーバーの URL | `http://localhost:11434` |
-| `LEROBOT_PATH` | lerobot_trossen のインストールパス | `/home/<username>/lerobot_trossen` |
-| `ROBOT_IP` | ロボットアームの IP アドレス | `192.168.1.x` |
-| `HF_USER` | Hugging Face ユーザー名 | `your_hf_username` |
-| `UV_PATH` | uv のフルパス（`which uv` で確認） | `/home/<username>/.local/bin/uv` |
-| `DRY_RUN` | `true` にするとアームを動かさずシミュレート | `false` |
-
-> `UV_PATH` は `which uv` で確認する。  
-> Mac での動作確認時は `DRY_RUN=true` に設定する。
-
-### 3. スキルの設定（`config.json`）
-
-`config.json` の主要設定項目と意味を以下に示す。
-
-#### `robot` セクション
-
-| フィールド | 説明 |
-|-----------|------|
-| `type` | ロボットタイプ（変更不要） |
-| `id` | ロボット識別子（変更不要） |
-| `max_relative_target` | 1ステップあたりの最大移動量（安全リミット） |
-| `min_time_to_move_multiplier` | 動作速度の制限係数（大きいほど遅く・安全） |
-| `cameras` | カメラ設定（シリアル番号・解像度・FPS・ウォームアップ時間） |
-
-#### `record` セクション (ポリシーの実行)
-
-| フィールド | 説明 | デフォルト |
-|-----------|------|-----------|
-| `num_episodes` | 1回の実行で評価するエピソード数 | `1`（デモは1回） |
-| `episode_time_s` | 1エピソードあたりの最大実行時間（秒） | `20` |
-| `reset_time_s` | エピソード間のリセット待ち時間（秒） | `5` |
-| `push_to_hub` | eval データを HF に送信するか | `false` |
-| `display_data` | カメラ映像をウィンドウ表示するか | `false` |
-
-#### `skills` セクション（スキルごとに設定）
-
-| フィールド | 説明 |
-|-----------|------|
-| `task_name` | `--dataset.single_task` に渡す文字列（**学習時のタスク名と完全一致**） |
-| `policy_path` | 学習済みモデルのパス（後述） |
-| `eval_repo_suffix` | eval データの保存先 suffix（実行ごとにユニークにすると後から確認できる） |
-
-### 4. 学習済みモデルの準備（`policy_path`）
-
-ポリシーパスの指定方法は2種類ある。**デモ本番ではAのローカルパスを推奨**（ネット依存なし・起動高速）。
-
-#### A. ローカルパス（推奨）
-
-**① モデルをアップロード（モデルを持っているユーザーが実行）:**
-
-```bash
-# 学習済みモデルを HuggingFace にアップロード
-cd /home/<model_owner>/lerobot_trossen
-huggingface-cli upload <HF_USER>/grab_cube_act \
-  outputs/train/<モデルフォルダ>/checkpoints/last/pretrained_model \
-  --repo-type model
-```
-
-**② モデルをダウンロード（使用するユーザーが実行）:**
-
-```bash
-cd /home/<username>/lerobot_trossen
-mkdir -p outputs/pretrained
-huggingface-cli download <HF_USER>/grab_cube_act \
-  --local-dir outputs/pretrained/grab_cube_act \
-  --repo-type model
-```
-
-**③ `config.json` の `policy_path` を更新:**
-
-```json
-"policy_path": "outputs/pretrained/grab_cube_act"
-```
-
-> `LEROBOT_PATH` 配下からの相対パスで指定する。  
-> `LEROBOT_PATH` 直下で学習した場合は `outputs/train/<フォルダ名>/checkpoints/last/pretrained_model` でもよい。
-
-#### B. HuggingFace リポジトリ ID を直接指定（インターネット必須）
-
-```json
-"policy_path": "<HF_USER>/grab_cube_act"
-```
-
-初回起動時にモデルを自動ダウンロードする。起動が遅くなるためデモ本番には不向き。
-
-### 5. LeRobot CLI の確認（初回のみ）
-
-```bash
-ls /home/<username>/lerobot_trossen/.venv/bin/lerobot*
-# → lerobot-record が存在すればOK
-```
 ---
 
 ## 起動方法
@@ -192,89 +55,62 @@ bash start_frontend.sh
 
 ---
 
+## スキルの追加・変更（`config.json`）
+
+スキル定義は `config.json` の `skills` セクションで管理する。新しいスキルを追加する場合は以下の要領でエントリを追記する。
+
+```json
+{
+  "skills": [
+    {
+      "name": "grab_cube",
+      "description": "キューブを掴む",
+      "type": "replay",
+      "dataset": {
+        "repo_id": "docomoshiken1/grab_cube"
+      }
+    }
+  ]
+}
+```
+
+| フィールド | 説明 |
+|-----------|------|
+| `name` | スキルの識別子（LLMが選択に使う） |
+| `description` | LLMへの説明文（日本語可）。命令とのマッチングに影響する |
+| `type` | `replay`（データセット再生）または `external_script`（外部スクリプト呼び出し） |
+| `dataset.repo_id` | HuggingFace のデータセット ID（`<org>/<name>` 形式） |
+
+> `dataset.repo_id` に対応するデータセットは事前に `download_datasets.sh` でローカルにキャッシュしておくこと。
+
+---
+
 ## ファイル構成
 
 ```
 widowx_system/
-├── config.json          # スキル定義・ロボット設定（公開）
-├── .env                 # 環境固有の秘匿設定（git管理外）
-├── .env.example         # .env のテンプレート
-├── setup.sh             # 初回セットアップ
-├── start_backend.sh     # バックエンド起動
-├── start_frontend.sh    # フロントエンド起動
+├── config.json                  # スキル定義・ロボット設定（公開）
+├── .env                         # 環境固有の秘匿設定（git管理外）
+├── .env.example                 # .env のテンプレート
+├── setup.sh                     # 初回セットアップ
+├── download_datasets.sh         # データセット一括ダウンロード
+├── start_backend.sh             # バックエンド起動
+├── start_frontend.sh            # フロントエンド起動
 ├── backend/
-│   ├── main.py          # FastAPI サーバー（WebSocket）
-│   ├── config.py        # 設定ローダー
-│   ├── llm.py           # Ollama 連携・スキル推論
-│   ├── executor.py      # キャッシュ削除 + lerobot-record 実行
+│   ├── main.py                  # FastAPI サーバー（WebSocket）
+│   ├── config.py                # 設定ローダー（config.json + .env）
+│   ├── llm.py                   # Ollama 連携・スキル推論
+│   ├── executor.py              # lerobot-replay / 外部スクリプト実行
 │   └── requirements.txt
-└── frontend/
-    ├── src/
-    │   ├── App.jsx               # メインコンポーネント・WebSocket管理
-    │   └── components/
-    │       ├── CommandInput.jsx  # 命令入力フォーム
-    │       ├── StatusPanel.jsx   # ステータス・選択スキル表示
-    │       ├── SkillList.jsx     # スキル一覧
-    │       └── LogPanel.jsx      # 実行ログ
-    └── ...
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx              # メインコンポーネント・WebSocket管理
+│   │   └── components/
+│   │       ├── CommandInput.jsx # 命令入力フォーム
+│   │       ├── StatusPanel.jsx  # ステータス・選択スキル表示
+│   │       ├── SkillList.jsx    # スキル一覧
+│   │       └── LogPanel.jsx     # 実行ログ
+│   └── ...
+└── tools/
+    └── widowx_reaction_tool/    # 画像認識 + アーム反応スクリプト群
 ```
-
----
-
-## IntelRealSense 固有の設定
-
-本システムは IntelRealSense カメラを使用するため、NVIDIA NPP ライブラリのパスが必要。  
-`executor.py` が起動時に `.venv` 内の `libnppicc.so.12` を自動検出し `LD_LIBRARY_PATH` を設定するため、**手動での `export` は不要**。
-
-> lerobot_trossen の公式マニュアルでは OpenCV カメラ（`type: opencv`）を使用するコマンド例が記載されているが、  
-> 本システムは IntelRealSense（`type: intelrealsense`）に対応した設定になっている。
-
----
-
-## uv sync について
-
-`uv sync` は**実行しないこと**。
-
-推論環境では `transformers>=4.41.0` に手動更新済み（paligemma モジュール不足エラーの対策）。
-`uv sync` を実行するとロックファイルの古いバージョンに戻り、エラーが再発する。
-
-パッケージを追加・更新する場合は `uv sync` ではなく `uv pip install` を使うこと。
-
----
-
-## トラブルシューティング
-
-### RTX 5080 (Blackwell) で CUDAカーネルエラーが発生する
-
-**症状:**
-```
-RuntimeError: CUDA error: no kernel image is available for execution on the device
-```
-
-**原因:** 標準の PyTorch が Blackwell アーキテクチャ（Compute Capability 10.0以降）のバイナリを含んでいないため。
-
-**対処手順:**
-
-**① CUDA 12.8 対応の Nightly 版 PyTorch を強制インストール**
-```bash
-VIRTUAL_ENV=/home/<username>/lerobot_trossen/.venv uv pip install \
-  --force-reinstall --pre torch torchvision torchaudio \
-  --index-url https://download.pytorch.org/whl/nightly/cu128
-```
-
-**② インストール確認（`sm_100` が含まれていればOK）**
-```bash
-uv run --no-sync python -c "import torch; print(torch.__version__); print(torch.cuda.get_arch_list())"
-# 出力例: ['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_100', 'sm_120']
-```
-
-**③ lockファイルを更新（チームで共有する場合）**
-```bash
-uv lock --upgrade-package torch --upgrade-package torchvision --upgrade-package torchaudio
-```
-
-> `uv lock` はlockファイルの更新のみ。`uv sync` とは異なり venv への巻き戻しは行わないため、上記の手動インストール結果には影響しない。
-
----
-
-
