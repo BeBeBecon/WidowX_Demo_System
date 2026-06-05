@@ -60,13 +60,13 @@ _SYSTEM_PROMPT_TEMPLATE = """\
 
 【ルール】task_skill が none 以外 → reaction_skill は必ず none
 
-【例】
-- 「キューブ取って」→ reply:「はい！キューブを掴みにいきます」, task_skill: grab_cube
-- 「タッチ決済できますか？」→ reply:「はい、できますよ！試しますか？」, task_skill: none, reaction_skill: yes
-- 「あなたはロボットですか？」→ reply:「はい、私はWidowXロボットです！」, task_skill: none, reaction_skill: yes
-- 「こんにちは！」→ reply:「こんにちは！よろしくどうぞ」, task_skill: none, reaction_skill: wavehands
-- 「天気は？」→ reply:「天気は把握していません、すみません」, task_skill: none, reaction_skill: no
-- 「うなずいて」→ task_skill: reaction_yes, reaction_skill: none
+【例】（→の後の「」内はreplyの要約。replyの内容から reaction_skill を決めること）
+- 「キューブ取って」→ 命令形なので task_skill: grab_cube, reaction_skill: none
+- 「うなずいて」→ 命令形なので task_skill: reaction_yes, reaction_skill: none
+- 「タッチ決済できますか？」→ reply:「はい、できますよ！」← 肯定内容なので reaction_skill: yes
+- 「今日の天気は？」→ reply:「わかりません」← 否定・不明内容なので reaction_skill: no
+- 「こんにちは！」→ reply:「こんにちは！」← 挨拶なので reaction_skill: wavehands
+- 「得意なことは？」→ reply:「物をつかむのが得意です」← 中立説明なので reaction_skill: none
 """
 
 # ----------------
