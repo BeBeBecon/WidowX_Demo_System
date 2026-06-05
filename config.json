@@ -70,17 +70,59 @@
   },
 
   "llm": {
-    "_comment": "LLM挙動設定。trigger_words または predefined_qa にマッチした場合のみ reaction 系スキルを選択肢に追加",
-    "yes_no_trigger_words": [
-      "できますか", "やってくれますか", "可能ですか", "できる？", "やれる？",
-      "いいえ", "違います", "できません", "ちがう", "やめて", "No",
-      "そうじゃない", "しないで"
+    "_comment": "LLM挙動設定。ask_agentが返答とスキル選択を同時に行う。スキル列挙はconfig.jsonのskillsから動的生成。task_skill_mapはmain.pyのスキル解決に使用",
+    "task_skill_map": {
+      "grab_cube":   "grab_cube",
+      "grab_bottle": "grab_bottle",
+      "pour_bottle": "pour_water",
+      "wavehands":   "wave_hand",
+      "yes":         "reaction_yes",
+      "no":          "reaction_no"
+    },
+    "reaction_skill_map": {
+      "yes":       "reaction_yes",
+      "no":        "reaction_no",
+      "wavehands": "wave_hand"
+    }
+  },
+
+  "demo_examples": {
+    "_comment": "Demo Example パネルの表示内容。フロントエンドが /api/config 経由で取得する",
+    "skill_examples": [
+      { "label": "非接触決済",    "text": "スマホでタッチ決済して！" },
+      { "label": "キューブを掴む", "text": "そのキューブ、取って" },
+      { "label": "ボトルを掴む",  "text": "ペットボトル、持ってきて" },
+      { "label": "水を注ぐ",      "text": "コップに水を注いで？" },
+      { "label": "手を振る",      "text": "バイバイ！" },
+      { "label": "うなずく",      "text": "うなずいて" },
+      { "label": "首を振る",      "text": "首を横に振って" }
     ],
-    "predefined_qa": [
-      { "question": "あなたはロボットですか？",     "skill_id": "reaction_yes" },
-      { "question": "タッチ決済はできますか？",     "skill_id": "reaction_yes" },
-      { "question": "おしゃべりできますか？",       "skill_id": "reaction_no"  },
-      { "question": "天気は分かりますか？",   "skill_id": "reaction_no"  }
+    "conversation_examples": [
+      {
+        "label": "挨拶",
+        "text": "こんにちは！",
+        "hint": "wave hand が発動するかも"
+      },
+      {
+        "label": "ロボット確認",
+        "text": "あなたはロボットですか？",
+        "hint": "同意返答 → Yes リアクション"
+      },
+      {
+        "label": "天気を聞く",
+        "text": "今日の天気は分かりますか？",
+        "hint": "「わかりません」返答 → No リアクション"
+      },
+      {
+        "label": "自己紹介を聞く",
+        "text": "あなたのことを教えてください",
+        "hint": "返答のみ・アクションなし"
+      },
+      {
+        "label": "得意なこと",
+        "text": "どんなことが得意ですか？",
+        "hint": "返答のみ・アクションなし"
+      }
     ]
   },
 

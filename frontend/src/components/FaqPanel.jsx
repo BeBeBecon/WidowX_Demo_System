@@ -9,8 +9,8 @@ export default function FaqPanel({ predefinedQa, onSelect, disabled }) {
   if (!predefinedQa || predefinedQa.length === 0) return null
 
   return (
-    <div className="glass p-5 space-y-3">
-      <div className="flex items-center gap-2">
+    <div className="glass p-5 flex flex-col gap-3 h-full overflow-hidden">
+      <div className="flex items-center gap-2 shrink-0">
         <div className="w-px h-4 bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
         <h2 className="panel-label">FAQ</h2>
         <span className="ml-auto text-[10px] text-white/30 tracking-widest font-mono">
@@ -18,8 +18,8 @@ export default function FaqPanel({ predefinedQa, onSelect, disabled }) {
         </span>
       </div>
 
-      {/* FAQ ボタン一覧 */}
-      <div className="flex flex-col gap-1.5">
+      {/* FAQ ボタン一覧: overflow時はスクロール */}
+      <div className="flex flex-col gap-1.5 overflow-y-auto flex-1 min-h-0">
         {predefinedQa.map((item, idx) => (
           <button
             key={idx}
