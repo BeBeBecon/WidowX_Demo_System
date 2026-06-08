@@ -28,7 +28,7 @@ def _build_skill_descriptions() -> str:
     lines = []
     for s in CONFIG.get("skills", []):
         verb = s.get("command_verb", s["name"])
-        lines.append(f'  - "{s["id"]}": {s["description"]}（例: 「{verb}」）')
+        lines.append(f'  - "{s["id"]}": {s["description"]}（ユーザー発話例: 「{verb}」）')
     return "\n".join(lines)
 
 
@@ -39,7 +39,7 @@ def _build_skill_descriptions() -> str:
 _SYSTEM_PROMPT_TEMPLATE = """\
 あなたは WidowX ロボットアームを備えた対話エージェントです。
 ユーザーへ自然な日本語で返答し、必要なら動作スキルを選んでください。
-返答(reply)はユーザーの言葉に応じた具体的な一言コメントにすること。毎回同じ「了解しました」はNG。
+返答(reply)はロボット自身の言葉で、「〜しますね」「〜しますよ」等の自然な応答文にすること。ユーザーの言葉をそのまま繰り返すのはNG。毎回同じ「了解しました」もNG。
 必ず JSON のみで返してください。
 
 {{
@@ -61,8 +61,8 @@ _SYSTEM_PROMPT_TEMPLATE = """\
 【ルール】task_skill が none 以外 → reaction_skill は必ず none
 
 【例】（→の後の「」内はreplyの要約。replyの内容から reaction_skill を決めること）
-- 「キューブ取って」→ 命令形なので task_skill: grab_cube, reaction_skill: none
-- 「うなずいて」→ 命令形なので task_skill: reaction_yes, reaction_skill: none
+- 「キューブ取って」→ reply:「キューブを掴みますね！」, task_skill: grab_cube, reaction_skill: none
+- 「うなずいて」→ reply:「わかりました、うなずきます」, task_skill: reaction_yes, reaction_skill: none
 - 「タッチ決済できますか？」→ reply:「はい、できますよ！」← 肯定内容なので reaction_skill: yes
 - 「今日の天気は？」→ reply:「わかりません」← 否定・不明内容なので reaction_skill: no
 - 「こんにちは！」→ reply:「こんにちは！」← 挨拶なので reaction_skill: wavehands
