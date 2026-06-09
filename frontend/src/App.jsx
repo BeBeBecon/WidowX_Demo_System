@@ -1,16 +1,15 @@
 // =====================================
 // App.jsx - メインコンポーネント
 // WebSocket接続管理・状態管理・3カラムレイアウト
-// 左: 命令入力 + ステータス / 中: スキル一覧 + FAQ / 右: フロー図 + ログ
+// 左: DemoExampleパネル / 中: 命令入力 + ステータス / 右: フロー図 + ログ
 // テーマ: Engineering Control（スレートグレー × アンバー）
 // =====================================
 import { useCallback, useEffect, useRef, useState } from 'react'
 import CommandInput from './components/CommandInput'
-import FaqPanel from './components/FaqPanel'
+import DemoExamplePanel from './components/DemoExamplePanel'
 import FlowDiagram from './components/FlowDiagram'
 import LogPanel from './components/LogPanel'
-import SkillList from './components/SkillList'
-import StatusPanel from './components/StatusPanel'
+import SystemStatusPanel from './components/SystemStatusPanel'
 
 // WebSocket URLを環境変数またはプロキシ経由で解決
 const WS_URL = import.meta.env.VITE_WS_URL || `ws://${location.host}/ws`
@@ -20,7 +19,6 @@ export default function App() {
   // 状態定義
   // ----------------
   const [status, setStatus]          = useState('idle')   // idle|connecting|thinking|executing|done|error
-  const [skills, setSkills]          = useState([])       // config.json のスキル一覧
   const [selectedSkill, setSelected] = useState(null)     // LLMが選択したスキル
   const [logs, setLogs]              = useState([])       // 実行ログ行配列
   const [isConnected, setConnected]  = useState(false)    // WebSocket接続状態
@@ -29,14 +27,16 @@ export default function App() {
   const [vlaOnline, setVlaOnline]    = useState(null)     // OpenVLAモード時の VLA Server 死活（null=未確認）
 
   // ----------------
-  // 追加状態: 実行履歴 / スキル入力補完 / エピソード時間
+  // 追加状態: LLM返答 / スキル入力補完 / エピソード時間
   // ----------------
   const [prefill, setPrefill]           = useState({ text: '', seq: 0 }) // CommandInput へのワンクリック入力（seq で同一テキスト再クリックを検知）
-  const [episodeTimeS, setEpisodeTimeS] = useState(null)             // config の episode_time_s（プログレスバー用）
   const [isFullscreen, setFullscreen]   = useState(false)            // 全画面モード状態
-  const [predefinedQa, setPredefinedQa] = useState([])              // FAQパネル用の定型質問一覧
+  const [demoExamples, setDemoExamples]  = useState({})             // DemoExampleパネル用データ（skill/conversation examples）
+  const [llmReply, setLlmReply]         = useState('')              // 最新のLLM返答テキスト
+  const [prevLlmReply, setPrevLlmReply] = useState('')             // 1つ前のLLM返答（SystemStatusPanel で薄く表示）
 
-  const wsRef = useRef(null)
+  const wsRef      = useRef(null)
+  const llmReplyRef = useRef('')  // llmReply の現在値を handleMessage クロージャから参照するための Ref
 
   // ----------------
   // 実行追跡用 Ref（stale closure を避けるため ref で管理）
@@ -102,8 +102,7 @@ export default function App() {
       .then(r => r.json())
       .then(d => {
         setDryRun(d.dry_run)
-        if (d.episode_time_s != null) setEpisodeTimeS(d.episode_time_s)
-        if (d.model_mode)             setModelMode(d.model_mode)
+        if (d.model_mode) setModelMode(d.model_mode)
       })
       .catch(() => {})
   }, [])
@@ -125,13 +124,6 @@ export default function App() {
 
   // ----------------
   // スキル一覧の取得（REST）
-  // ----------------
-  useEffect(() => {
-    fetch('/api/skills')
-      .then(r => r.json())
-      .then(setSkills)
-      .catch(() => {})
-  }, [])
 
   // ----------------
   // 公開設定取得: FAQリストを /api/config から取得
@@ -140,7 +132,7 @@ export default function App() {
     fetch('/api/config')
       .then(r => r.json())
       .then(d => {
-        if (d.llm?.predefined_qa) setPredefinedQa(d.llm.predefined_qa)
+        if (d.demo_examples) setDemoExamples(d.demo_examples)
       })
       .catch(() => {})
   }, [])
@@ -153,13 +145,18 @@ export default function App() {
     switch (msg.type) {
       case 'status':
         setStatus(msg.status)
-        // executing 開始: 実行開始時刻を記録
         if (msg.status === 'executing') {
           execStartRef.current = Date.now()
         }
         if (msg.status === 'done' || msg.status === 'error') {
           execStartRef.current = null
         }
+        break
+      case 'llm_reply':
+        // 現在の返答を prevLlmReply に退避してから新しい返答をセット
+        setPrevLlmReply(llmReplyRef.current)
+        llmReplyRef.current = msg.text
+        setLlmReply(msg.text)
         break
       case 'llm_result':
         setSelected(msg.skill)
@@ -178,12 +175,15 @@ export default function App() {
   const isBusy = status === 'thinking' || status === 'executing' || status === 'connecting'
 
   // ----------------
-  // 初期状態へリセット（selectedSkill・ログも含めて全クリア）
+  // 初期状態へリセット（selectedSkill・ログ・LLM返答も含めて全クリア）
   // ----------------
   const handleReset = () => {
     setStatus('idle')
     setSelected(null)
     setLogs([])
+    setLlmReply('')
+    setPrevLlmReply('')
+    llmReplyRef.current = ''
   }
 
   // ----------------
@@ -195,6 +195,9 @@ export default function App() {
     currentSkillRef.current   = null
     setSelected(null)
     setLogs([])
+    setLlmReply('')
+    setPrevLlmReply('')
+    llmReplyRef.current = ''
     setStatus('idle')
     wsRef.current.send(JSON.stringify({ command }))
   }, [isConnected, isBusy])
@@ -211,19 +214,22 @@ export default function App() {
   // レイアウト描画
   // ----------------
   return (
-    <div className="min-h-screen text-white p-8 font-mono">
-      {/* 隅のグロー装飾（控えめなアンバー） */}
+    // h-screen overflow-hidden: 画面全体を占有し、コンテンツ増加によるレイアウト変化を完全禁止
+    // スクロールは各パネル内部のみ。min-h-0 を全 flex/grid 子要素に徹底適用
+    <div className="h-screen overflow-hidden text-white p-5 font-mono">
+      {/* 隅のグロー装飾（fixed で layout に影響なし） */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-0 left-0 w-[600px] h-[300px] bg-amber-500/3 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
         <div className="absolute bottom-0 right-0 w-[600px] h-[300px] bg-amber-500/3 rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto space-y-5">
+      {/* h-full: 親(h-screen)を埋める。flex-col で header と grid を縦積み */}
+      <div className="relative h-full max-w-7xl mx-auto flex flex-col gap-4">
 
         {/* =====================================
-            ヘッダー: システム識別バー
+            ヘッダー: shrink-0 で固定高さ
             ===================================== */}
-        <header className="border border-white/8 bg-[#161b22]/90 rounded-sm px-5 py-3
+        <header className="shrink-0 border border-white/8 bg-[#161b22]/90 rounded-sm px-5 py-3
                            shadow-[0_0_30px_rgba(245,158,11,0.04)]">
           <div className="flex items-center justify-between">
             {/* 左: システム名 */}
@@ -237,7 +243,7 @@ export default function App() {
                     WidowX Sub Agent
                   </h1>
                   <span className="text-[10px] px-2 py-0.5 border border-amber-500/40 text-amber-500/70 tracking-widest font-mono">
-                    v1.0
+                    v1.1
                   </span>
                 </div>
                 <p className="text-[10px] text-amber-400/50 tracking-[0.15em] uppercase mt-0.5 font-mono">
@@ -339,65 +345,57 @@ export default function App() {
         </header>
 
         {/* =====================================
-            外側レイアウト: メインパネル + 右サイドパネル（将来用・現在非表示）
+            3カラムグリッド
+            flex-1 min-h-0: header を除いた残り高さを正確に占有（これ以上伸びない）
+            grid セルに min-h-0 必須: デフォルト min-height:auto を上書きして
+            コンテンツ増加によるセル拡張を防ぐ
             ===================================== */}
-        <div className="flex gap-6 items-start">
+        <div className="flex-1 min-h-0 grid grid-cols-3 gap-5">
 
-          {/* =====================================
-              3カラムグリッド: 左=入力操作 / 中=スキル一覧 / 右=ステータス・ログ
-              items-stretch + h-full flex-col で各列の底辺を揃える
-              ===================================== */}
-          <div className="flex-1 min-w-0">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          {/* 左カラム: min-h-0 でセル高さ固定 → DemoExamplePanel が h-full で埋める */}
+          <div className="min-h-0">
+            <DemoExamplePanel
+              demoExamples={demoExamples}
+              onSelect={text => setPrefill(prev => ({ text, seq: prev.seq + 1 }))}
+              disabled={isBusy || !isConnected}
+            />
+          </div>
 
-              {/* 左カラム: スキル一覧（方向プルダウン付き・固定）+ FAQ（残り高さを埋める） */}
-              <div className="flex flex-col gap-5 h-full">
-                <SkillList
-                  skills={skills}
-                  selectedSkillId={selectedSkill?.id}
-                  onSelect={cmd => setPrefill(prev => ({ text: cmd, seq: prev.seq + 1 }))}
-                />
-                <div className="flex-1 min-h-0">
-                  <FaqPanel
-                    predefinedQa={predefinedQa}
-                    onSelect={q => setPrefill(prev => ({ text: q, seq: prev.seq + 1 }))}
-                    disabled={isBusy || !isConnected}
-                  />
-                </div>
-              </div>
+          {/* 中カラム: flex-col + min-h-0 でセル固定。CommandInput(shrink-0) + Status(flex-1) */}
+          <div className="min-h-0 flex flex-col gap-4">
+            <div className="shrink-0">
+              <CommandInput
+                onSubmit={handleSubmit}
+                onEmergencyStop={handleEmergencyStop}
+                disabled={isBusy || !isConnected}
+                isBusy={isBusy}
+                prefill={prefill}
+              />
+            </div>
+            <div className="flex-1 min-h-0">
+              <SystemStatusPanel
+                status={status}
+                selectedSkill={selectedSkill}
+                onReset={handleReset}
+                isBusy={isBusy}
+                llmReply={llmReply}
+                prevLlmReply={prevLlmReply}
+              />
+            </div>
+          </div>
 
-              {/* 中カラム: 命令入力（固定） + ステータス（残り高さを埋める） */}
-              <div className="flex flex-col gap-5 h-full">
-                <CommandInput
-                  onSubmit={handleSubmit}
-                  onEmergencyStop={handleEmergencyStop}
-                  disabled={isBusy || !isConnected}
-                  isBusy={isBusy}
-                  prefill={prefill}
-                />
-                <div className="flex-1 min-h-0">
-                  <StatusPanel
-                    status={status}
-                    selectedSkill={selectedSkill}
-                    onReset={handleReset}
-                    isBusy={isBusy}
-                    episodeTimeS={episodeTimeS}
-                  />
-                </div>
-              </div>
-
-              {/* 右カラム: フロー図（固定）+ ログ（残り高さを埋める） */}
-              <div className="flex flex-col gap-5 h-full">
-                <FlowDiagram status={status} />
-                <div className="flex-1 min-h-0">
-                  <LogPanel logs={logs} flexible />
-                </div>
-              </div>
-
+          {/* 右カラム: flex-col + min-h-0 でセル固定。FlowDiagram(shrink-0) + Log(flex-1) */}
+          <div className="min-h-0 flex flex-col gap-4">
+            <div className="shrink-0">
+              <FlowDiagram status={status} />
+            </div>
+            <div className="flex-1 min-h-0">
+              <LogPanel logs={logs} flexible />
             </div>
           </div>
 
         </div>
+
       </div>
     </div>
   )

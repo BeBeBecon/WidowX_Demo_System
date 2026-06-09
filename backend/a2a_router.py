@@ -23,7 +23,7 @@ from pydantic import BaseModel
 
 from config import CONFIG
 from executor import run_skill
-from llm import select_skill
+from llm import ask_agent
 
 router = APIRouter()
 
@@ -196,16 +196,36 @@ async def _execute_task(task_id: str, command: str) -> None:
         await set_status(WORKING)
         await log(f"[LLM] 推論開始: '{command}'")
 
-        skill_id = await select_skill(command)
+        # ask_agent で返答+スキル選択を同時取得
+        agent = await ask_agent(command)
+        await log(f"[LLM] 返答: {agent['reply']}")
+
+        # task_skill → skill_id へのマッピング（config.json の llm.task_skill_map を使用）
+        llm_cfg      = CONFIG.get("llm", {})
+        task_map     = llm_cfg.get("task_skill_map",     {})
+        reaction_map = llm_cfg.get("reaction_skill_map", {})
+
+        task_skill     = agent["task_skill"]
+        reaction_skill = agent["reaction_skill"]
+        skill_id = None
+        if task_skill != "none":
+            skill_id = task_map.get(task_skill)
+        elif reaction_skill != "none":
+            skill_id = reaction_map.get(reaction_skill)
 
         if skill_id is None:
-            await log("[INFO] 該当するスキルが見つかりませんでした")
+            await log("[INFO] 実行スキルなし（会話のみ）")
+            await set_status(COMPLETED)
+            return
+
+        skills_map = {s["id"]: s for s in CONFIG["skills"]}
+        selected   = skills_map.get(skill_id)
+        if selected is None:
+            await log(f"[WARN] スキルID '{skill_id}' が見つかりません")
             task["error"] = "スキル未マッチ"
             await set_status(FAILED)
             return
 
-        skills_map = {s["id"]: s for s in CONFIG["skills"]}
-        selected   = skills_map[skill_id]
         task["skill"] = selected
         await log(f"[LLM] スキル選択: {selected['name']}")
 

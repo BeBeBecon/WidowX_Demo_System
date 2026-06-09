@@ -27,3 +27,6 @@ frontend/.env.local
 
 # デザインバックアップ（共有不要）
 design_backup/
+
+# 参考ソース（チーム共有用比較用途。git管理外）
+見本/

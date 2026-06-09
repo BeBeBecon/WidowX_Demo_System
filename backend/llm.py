@@ -1,135 +1,140 @@
 """
 # ----------------
 # Ollama LLM 連携モジュール
-# スキル一覧とユーザー命令をOllamaに渡し、最適なスキルIDを推論する
+# ask_agent(): ユーザー命令から自然言語返答+スキル選択を1回の推論で実現
+# システムプロンプトはモジュール起動時に config.json から動的生成
+# format_for_openvla(): OpenVLAモード向け属性抽出（Phase 1b）
 # ----------------
 """
+import json
 import httpx
 
 from config import CONFIG
 
 
-# ----------------
-# プロンプトテンプレート（スキルセレクター専用）
-# ----------------
-PROMPT_TEMPLATE = """\
-You are a robot arm skill selector.
-Select the most appropriate skill ID from the list below based on the user's command.
-If no skill reasonably matches the command, respond with exactly: none
+# =====================================
+# システムプロンプト動的生成ヘルパー
+# config.json の skills 配列を参照してモジュール起動時に一度だけ生成
+# =====================================
 
-Respond with ONLY the skill ID or "none". No explanation.
-
-Available skills:
-{skill_list}
-
-User command: {command}
-
-Skill ID:"""
+def _build_task_skill_enum() -> str:
+    """task_skill として LLM に提示する値列挙（全スキルID + none）"""
+    ids = ["none"] + [s["id"] for s in CONFIG.get("skills", [])]
+    return " | ".join(ids)
 
 
-def _build_skill_list(skills: list[dict]) -> str:
-    """スキル一覧をプロンプト用テキストに整形する"""
+def _build_skill_descriptions() -> str:
+    """各スキルの説明文（LLMに何ができるかを教える）"""
     lines = []
-    for s in skills:
-        lines.append(f"- {s['id']}: {s['name']} — {s['description']}")
+    for s in CONFIG.get("skills", []):
+        verb = s.get("command_verb", s["name"])
+        lines.append(f'  - "{s["id"]}": {s["description"]}（ユーザー発話例: 「{verb}」）')
     return "\n".join(lines)
 
 
 # ----------------
-# Yes/No トリガー判定ヘルパー
-# predefined_qa / trigger_words いずれかにマッチした場合のみ
-# reaction_yes / reaction_no を LLM 候補に含める。
+# プロンプト骨格テンプレート（{task_skill_enum}/{skill_descriptions} を動的埋め込み）
+# 簡潔に保ち LLM 推論時間を最小化する
 # ----------------
-_REACTION_IDS = {"reaction_yes", "reaction_no"}
+_SYSTEM_PROMPT_TEMPLATE = """\
+あなたは WidowX ロボットアームを備えた対話エージェントです。
+ユーザーへ自然な日本語で返答し、必要なら動作スキルを選んでください。
+返答(reply)はロボット自身の言葉で、「〜しますね」「〜しますよ」等の自然な応答文にすること。ユーザーの言葉をそのまま繰り返すのはNG。毎回同じ「了解しました」もNG。
+必ず JSON のみで返してください。
+
+{{
+  "reply": "ユーザーへの自然な日本語返答（具体的・バリエーションあり）",
+  "task_skill": "{task_skill_enum}",
+  "reaction_skill": "none | yes | no | wavehands"
+}}
+
+【task_skill】「〜して」「〜してください」等の明確な命令形のみ選ぶ。
+「〜できますか？」「〜は何ですか？」等の質問形式は必ず task_skill=none。
+{skill_descriptions}
+
+【reaction_skill】自分の返答内容で決める（ユーザーの言葉ではなく）:
+- yes  : 返答が「はい」「そうです」「できます」で始まっていれば必ず yes（その後に説明・「が」・補足が続いても関係なく yes）
+- no   : 「いいえ」「わかりません」「できません」等の否定・不確かさを表明する
+- wavehands: 挨拶（こんにちは・おはよう・さようなら・バイバイ等）
+- none : 中立的な説明・情報提供・肯定でも否定でもない返答
+
+【ルール】task_skill が none 以外 → reaction_skill は必ず none
+
+【例】（→の後の「」内はreplyの要約。replyの内容から reaction_skill を決めること）
+- 「キューブ取って」→ reply:「キューブを掴みますね！」, task_skill: grab_cube, reaction_skill: none
+- 「うなずいて」→ reply:「わかりました、うなずきます」, task_skill: reaction_yes, reaction_skill: none
+- 「タッチ決済できますか？」→ reply:「はい、できますよ！」← 「はい」で始まる肯定なので reaction_skill: yes
+- 「今日の天気は？」→ reply:「わかりません、ごめんなさい」← 不確かさの表明なので reaction_skill: no
+- 「こんにちは！」→ reply:「こんにちは！」← 挨拶なので reaction_skill: wavehands
+- 「得意なことは？」→ reply:「物をつかむのが得意です」← 中立説明なので reaction_skill: none
+"""
+
+# ----------------
+# モジュール起動時に一度だけ生成（スキル変更はサーバー再起動）
+# ----------------
+SYSTEM_PROMPT = _SYSTEM_PROMPT_TEMPLATE.format(
+    task_skill_enum=_build_task_skill_enum(),
+    skill_descriptions=_build_skill_descriptions(),
+)
+
+# ----------------
+# バリデーション用許容値セット（config から動的生成）
+# ----------------
+ALLOWED_TASK     = {"none"} | {s["id"] for s in CONFIG.get("skills", [])}
+ALLOWED_REACTION = {"none"} | set(CONFIG.get("llm", {}).get("reaction_skill_map", {}).keys())
 
 
-def _check_yes_no_trigger(command: str) -> str | None:
+# =====================================
+# メイン推論関数
+# =====================================
+async def ask_agent(command: str) -> dict:
     """
-    predefined_qa に完全一致 → skill_id を直接返す（LLM スキップ）。
-    trigger_words にいずれか含まれる → None を返す（通常フローで reaction 系を候補に含む）。
-    reaction スキルの command_verb に一致 → None を返す（カード直クリック対応）。
-    いずれも非マッチ → "_no_reaction" 番兵を返す（reaction 系を候補から除外するシグナル）。
+    ユーザー命令に対して自然言語返答とスキル選択を同時に返す。
+    返却型: { "reply": str, "task_skill": str, "reaction_skill": str }
+    JSONパースエラー時はフォールバック（クラッシュさせない）。
     """
-    llm_cfg  = CONFIG.get("llm", {})
-    qa_list  = llm_cfg.get("predefined_qa", [])
-    triggers = llm_cfg.get("yes_no_trigger_words", [])
-
-    # 完全一致チェック（predefined_qa）
-    for qa in qa_list:
-        if qa.get("question", "").strip() == command.strip():
-            return qa["skill_id"]
-
-    # トリガーワード部分一致チェック
-    for word in triggers:
-        if word in command:
-            return None  # reaction 系を候補に含めて通常フロー
-
-    # reaction スキルの command_verb 部分一致チェック
-    # スキルカード直クリック時に command_verb がそのまま送信されるケースに対応
-    for skill in CONFIG.get("skills", []):
-        if skill.get("id") not in _REACTION_IDS:
-            continue
-        verb = skill.get("command_verb", "")
-        if verb and verb in command:
-            return None  # reaction 系を候補に含めて通常フロー
-
-    return "_no_reaction"  # reaction 系を除外するシグナル
-
-
-async def select_skill(command: str) -> str | None:
-    """
-    Ollama API を呼び出してスキルIDを推論する。
-    - predefined_qa に完全一致 → LLM をスキップして直接返す
-    - trigger_words マッチ    → reaction 系を候補に含めて推論
-    - いずれも非マッチ       → reaction 系を除外して推論
-    返り値: スキルID文字列（例: "grab_cube"）、マッチしない場合は None
-    """
-    skills   = CONFIG["skills"]
-    trigger_result = _check_yes_no_trigger(command)
-
-    # predefined_qa 完全一致 → 直接返す
-    if trigger_result not in (None, "_no_reaction"):
-        return trigger_result
-
-    # reaction 系を候補から除外するか判定
-    if trigger_result == "_no_reaction":
-        candidate_skills = [s for s in skills if s["id"] not in _REACTION_IDS]
-    else:
-        candidate_skills = skills
-
-    skill_list_text = _build_skill_list(candidate_skills)
-    prompt = PROMPT_TEMPLATE.format(skill_list=skill_list_text, command=command)
-
     ollama_url = f"{CONFIG['ollama']['host']}/api/generate"
     payload = {
-        "model": CONFIG["ollama"]["model"],
-        "prompt": prompt,
+        "model":  CONFIG["ollama"]["model"],
+        "prompt": command,
+        "system": SYSTEM_PROMPT,
         "stream": False,
+        "format": "json",  # Ollama にJSON出力を強制
     }
 
-    async with httpx.AsyncClient(timeout=CONFIG["ollama"]["timeout"]) as client:
-        resp = await client.post(ollama_url, json=payload)
-        resp.raise_for_status()
-        result = resp.json()
+    try:
+        async with httpx.AsyncClient(timeout=CONFIG["ollama"]["timeout"]) as client:
+            resp = await client.post(ollama_url, json=payload)
+            resp.raise_for_status()
+            result = resp.json()
 
-    # レスポンスからスキルIDを抽出・正規化
-    raw = result.get("response", "").strip().lower().replace(" ", "_")
+        raw_text = result.get("response", "").strip()
+        data     = json.loads(raw_text)
 
-    # LLMが明示的に none を返した場合はスキルなしとして扱う
-    if raw == "none":
-        return None
+        reply          = str(data.get("reply", "")).strip() or "..."
+        task_skill     = str(data.get("task_skill",     "none")).strip().lower()
+        reaction_skill = str(data.get("reaction_skill", "none")).strip().lower()
 
-    # 有効なスキルIDか検証（候補スキルの範囲内のみ）
-    valid_ids = {s["id"] for s in candidate_skills}
-    if raw in valid_ids:
-        return raw
+        # バリデーション: 未知の値は none に正規化
+        if task_skill     not in ALLOWED_TASK:     task_skill     = "none"
+        if reaction_skill not in ALLOWED_REACTION: reaction_skill = "none"
 
-    # 部分一致で救済
-    for sid in valid_ids:
-        if sid in raw or raw in sid:
-            return sid
+        # task_skill が有効な場合は reaction_skill を強制 none（ルール準拠）
+        if task_skill != "none":
+            reaction_skill = "none"
 
-    return None
+        return {
+            "reply":          reply,
+            "task_skill":     task_skill,
+            "reaction_skill": reaction_skill,
+        }
+
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {
+            "reply":          "応答の解析に失敗しました。もう一度お試しください。",
+            "task_skill":     "none",
+            "reaction_skill": "none",
+        }
 
 
 # ----------------
@@ -154,7 +159,7 @@ Task:"""
 async def format_for_openvla(command: str, base_task: str) -> str:
     """
     ユーザー命令から属性を抽出し、base_task に付加して返す（Phase 1b）。
-    base_task は select_skill() で確定したスキルの task_name を使用する。
+    base_task は ask_agent() で確定したスキルの task_name を使用する。
     例: command="黄色いキューブを掴んで", base_task="Grab the cube"
         → "Grab the yellow cube"
     """

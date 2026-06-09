@@ -3,8 +3,8 @@
 # WidowX Sub Agent - FastAPIバックエンド
 # WebSocket で UI とリアルタイム通信し、
 # config.json の model_mode に応じて
-#   ACT     : Ollama推論 → スキル選択 → ACT実行
-#   OpenVLA : Ollama推論 → タスク整形 → VLA Server へ送信
+#   ACT     : ask_agent推論 → スキル選択 → ACT実行
+#   OpenVLA : ask_agent推論 → タスク整形 → VLA Server へ送信
 # の実行ルートを切り替える。
 # 緊急停止メッセージ（action: "stop"）は全フェーズで並行監視する。
 # =====================================
@@ -19,13 +19,21 @@ from a2a_router import router as a2a_router
 from config import CONFIG
 from direction_receiver import router as direction_router
 from executor import run_skill
-from llm import format_for_openvla, select_skill
+from llm import ask_agent, format_for_openvla
 from openvla_client import check_vla_status, run_vla_task
 
 # ----------------
 # 起動時にモード確定（大文字で統一）
 # ----------------
 MODEL_MODE: str = CONFIG.get("model_mode", "ACT").upper()
+
+# ----------------
+# スキルIDマッピング: LLMが返す task_skill / reaction_skill を config の skill_id に変換
+# ----------------
+_LLM_CFG      = CONFIG.get("llm", {})
+TASK_SKILL_MAP     = _LLM_CFG.get("task_skill_map",     {})
+REACTION_SKILL_MAP = _LLM_CFG.get("reaction_skill_map", {})
+SKILL_BY_ID        = {s["id"]: s for s in CONFIG.get("skills", [])}
 
 # ----------------
 # アプリ初期化・CORS設定
@@ -56,10 +64,10 @@ app.include_router(direction_router)
 @app.get("/api/health")
 async def health():
     return {
-        "status":       "ok",
-        "dry_run":      CONFIG["dry_run"],
+        "status":         "ok",
+        "dry_run":        CONFIG["dry_run"],
         "episode_time_s": CONFIG["record"]["episode_time_s"],
-        "model_mode":   MODEL_MODE,
+        "model_mode":     MODEL_MODE,
     }
 
 
@@ -78,8 +86,8 @@ async def get_skills():
 @app.get("/api/config")
 async def get_config():
     return {
-        "llm":               CONFIG.get("llm", {}),
-        "command_templates": CONFIG.get("command_templates", {}),
+        "llm":            CONFIG.get("llm", {}),
+        "demo_examples":  CONFIG.get("demo_examples", {}),
     }
 
 
@@ -127,12 +135,30 @@ async def _run_with_stop_monitor(task_coro, ws: WebSocket):
     return False, (exc or task.result())
 
 
+def _resolve_skill(task_skill: str, reaction_skill: str) -> dict | None:
+    """
+    ask_agent の返却値からスキルオブジェクトを解決する共通ヘルパー。
+    task_skill 優先、次に reaction_skill。
+    task_skill_map に未登録の場合は skill_id として直接 SKILL_BY_ID を参照する
+    （config.jsonに skill_id がそのままLLMに渡る新設計に対応）。
+    対応するスキルが見つからない場合は None を返す。
+    """
+    skill_id = None
+    if task_skill != "none":
+        # マップ経由 → マップ未登録なら skill_id として直接検索
+        skill_id = TASK_SKILL_MAP.get(task_skill, task_skill)
+    elif reaction_skill != "none":
+        skill_id = REACTION_SKILL_MAP.get(reaction_skill)
+
+    return SKILL_BY_ID.get(skill_id) if skill_id else None
+
+
 # =====================================
 # メイン WebSocket エンドポイント
 # プロトコル:
 #   受信（コマンド）: {"command": "ユーザー命令テキスト"}
 #   受信（停止）:     {"action": "stop"}
-#   送信: {"type": "status"|"llm_result"|"log"|"error", ...}
+#   送信: {"type": "status"|"llm_reply"|"llm_result"|"log"|"error", ...}
 # =====================================
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
@@ -144,7 +170,7 @@ async def websocket_endpoint(ws: WebSocket):
 
     try:
         while True:
-            raw = await ws.receive_text()
+            raw     = await ws.receive_text()
             payload = json.loads(raw)
 
             # 待機中に受信した緊急停止は無視
@@ -170,15 +196,15 @@ async def websocket_endpoint(ws: WebSocket):
 
 # =====================================
 # ACT モード実行ハンドラ
+# ask_agent で返答+スキル選択 → スキルがあれば ACT 実行
 # =====================================
 async def _handle_act(ws: WebSocket, send, command: str):
-    """ACT モード: LLM でスキル選択 → ACT 実行"""
 
-    # Phase 1: LLM推論
+    # Phase 1: LLM推論（返答+スキル選択を同時実行）
     await send({"type": "status", "status": "thinking"})
     await send({"type": "log",    "line":   f"[LLM] 推論開始: '{command}'"})
 
-    stopped, result = await _run_with_stop_monitor(select_skill(command), ws)
+    stopped, result = await _run_with_stop_monitor(ask_agent(command), ws)
     if stopped:
         await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（推論中）"})
         await send({"type": "status", "status": "idle"})
@@ -186,17 +212,25 @@ async def _handle_act(ws: WebSocket, send, command: str):
 
     if isinstance(result, Exception):
         err = f"{type(result).__name__}: {result}" if str(result) else type(result).__name__
-        await send({"type": "error",  "message": f"LLM推論エラー: {err}"})
-        await send({"type": "status", "status": "error"})
+        await send({"type": "llm_reply", "text":    "LLMとの通信に失敗しました。もう一度お試しください。"})
+        await send({"type": "error",     "message": f"LLM推論エラー: {err}"})
+        await send({"type": "status",    "status":  "error"})
         return
 
-    skill_id = result
-    if skill_id is None:
-        await send({"type": "log",    "line":   "[INFO] 該当するスキルが見つかりませんでした。登録済みスキルの命令をお試しください。"})
+    agent = result  # {reply, task_skill, reaction_skill}
+
+    # LLM返答をフロントへ送信
+    await send({"type": "llm_reply", "text": agent["reply"]})
+    await send({"type": "log",       "line": f"[LLM] 返答: {agent['reply']}"})
+    await send({"type": "log",       "line": f"[LLM] task_skill={agent['task_skill']} / reaction_skill={agent['reaction_skill']}"})
+
+    # スキル解決
+    selected = _resolve_skill(agent["task_skill"], agent["reaction_skill"])
+    if selected is None:
+        await send({"type": "log",    "line":   "[INFO] 実行スキルなし（会話のみ）"})
         await send({"type": "status", "status": "idle"})
         return
 
-    selected = {s["id"]: s for s in CONFIG["skills"]}[skill_id]
     await send({"type": "log",        "line":  f"[LLM] スキル選択: {selected['name']}"})
     await send({"type": "llm_result", "skill": selected})
 
@@ -221,68 +255,94 @@ async def _handle_act(ws: WebSocket, send, command: str):
 
 
 # =====================================
-# OpenVLA モード実行ハンドラ（2段階 LLM 処理）
+# OpenVLA モード実行ハンドラ
+# ask_agent で返答+スキル選択 → external_script は直接実行、replay系は VLA Server へ
 # =====================================
 async def _handle_openvla(ws: WebSocket, send, command: str):
     """
     OpenVLA モード:
-      Phase 1a: select_skill()          → スキル特定 + task_name（ベース文字列）確定
-      Phase 1b: format_for_openvla()    → ユーザー命令の属性を付加してタスク文字列生成
-      Phase 2:  run_vla_task()          → VLA Server へ送信 → アーム動作
+      Phase 1:  ask_agent()           → 返答 + スキル特定
+      Phase 1b: format_for_openvla()  → replay系スキルのみ属性付加
+      Phase 2:  run_vla_task()        → VLA Server へ送信 → アーム動作
+                run_skill()           → external_script 系スキルは直接実行
     """
     await send({"type": "status", "status": "thinking"})
+    await send({"type": "log",    "line":   f"[LLM] 推論開始: '{command}'"})
 
-    # ----------------
-    # Phase 1a: スキル選択（ACT モードと同じ推論）
-    # ----------------
-    await send({"type": "log", "line": f"[LLM] スキル推論開始: '{command}'"})
-
-    stopped, result = await _run_with_stop_monitor(select_skill(command), ws)
+    stopped, result = await _run_with_stop_monitor(ask_agent(command), ws)
     if stopped:
-        await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（スキル推論中）"})
+        await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（推論中）"})
         await send({"type": "status", "status": "idle"})
         return
 
     if isinstance(result, Exception):
         err = f"{type(result).__name__}: {result}" if str(result) else type(result).__name__
-        await send({"type": "error",  "message": f"LLMスキル推論エラー: {err}"})
-        await send({"type": "status", "status": "error"})
+        await send({"type": "llm_reply", "text":    "LLMとの通信に失敗しました。もう一度お試しください。"})
+        await send({"type": "error",     "message": f"LLM推論エラー: {err}"})
+        await send({"type": "status",    "status":  "error"})
         return
 
-    skill_id = result
-    if skill_id is None:
-        await send({"type": "log",    "line":   "[INFO] 該当するスキルが見つかりませんでした。登録済みスキルの命令をお試しください。"})
+    agent = result
+
+    # LLM返答をフロントへ送信
+    await send({"type": "llm_reply", "text": agent["reply"]})
+    await send({"type": "log",       "line": f"[LLM] 返答: {agent['reply']}"})
+    await send({"type": "log",       "line": f"[LLM] task_skill={agent['task_skill']} / reaction_skill={agent['reaction_skill']}"})
+
+    # スキル解決
+    selected = _resolve_skill(agent["task_skill"], agent["reaction_skill"])
+    if selected is None:
+        await send({"type": "log",    "line":   "[INFO] 実行スキルなし（会話のみ）"})
         await send({"type": "status", "status": "idle"})
         return
 
-    selected  = {s["id"]: s for s in CONFIG["skills"]}[skill_id]
-    base_task = selected.get("task_name", selected["name"])  # task_name がない場合は name を使用
-    await send({"type": "log", "line": f"[LLM] スキル選択: {selected['name']} / ベースタスク: '{base_task}'"})
+    await send({"type": "log",        "line":  f"[LLM] スキル選択: {selected['name']}"})
+    await send({"type": "llm_result", "skill": selected})
+    await send({"type": "status",     "status": "executing"})
 
     # ----------------
-    # Phase 1b: 属性付加（ユーザー命令から色・位置等を抽出して base_task に付加）
+    # external_script 系（wave_hand / reaction_yes / reaction_no）は VLA を介さず直接実行
     # ----------------
-    await send({"type": "log", "line": f"[LLM] 属性抽出・タスク整形中..."})
+    if selected.get("execution_type") == "external_script":
+        async def execute_direct():
+            async for line in run_skill(selected):
+                await send({"type": "log", "line": line})
 
-    stopped, result = await _run_with_stop_monitor(format_for_openvla(command, base_task), ws)
+        stopped, exc = await _run_with_stop_monitor(execute_direct(), ws)
+        if stopped:
+            await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました"})
+            await send({"type": "status", "status": "idle"})
+        elif exc:
+            err = f"{type(exc).__name__}: {exc}" if str(exc) else type(exc).__name__
+            await send({"type": "error",  "message": f"実行エラー: {err}"})
+            await send({"type": "status", "status": "error"})
+        else:
+            await send({"type": "status", "status": "done"})
+        return
+
+    # ----------------
+    # Phase 1b: replay系スキルの属性付加（ユーザー命令から色・位置等を抽出）
+    # ----------------
+    base_task = selected.get("task_name", selected["name"])
+    await send({"type": "log", "line": f"[LLM] 属性抽出・タスク整形中... ベース: '{base_task}'"})
+
+    stopped, fmt_result = await _run_with_stop_monitor(format_for_openvla(command, base_task), ws)
     if stopped:
         await send({"type": "log",    "line":   "[INFO] 緊急停止が実行されました（タスク整形中）"})
         await send({"type": "status", "status": "idle"})
         return
 
-    if isinstance(result, Exception):
-        err = f"{type(result).__name__}: {result}" if str(result) else type(result).__name__
+    if isinstance(fmt_result, Exception):
+        err = f"{type(fmt_result).__name__}: {fmt_result}" if str(fmt_result) else type(fmt_result).__name__
         await send({"type": "error",  "message": f"LLMタスク整形エラー: {err}"})
         await send({"type": "status", "status": "error"})
         return
 
-    vla_task_str = result
+    vla_task_str = fmt_result
     await send({"type": "log",        "line":  f"[LLM] タスク文字列確定: '{vla_task_str}'"})
     await send({"type": "llm_result", "skill": {**selected, "name": vla_task_str, "icon": "🤖"}})
 
     # Phase 2: VLA Server 実行
-    await send({"type": "status", "status": "executing"})
-
     async def execute_vla():
         async for line in run_vla_task(vla_task_str):
             await send({"type": "log", "line": line})
